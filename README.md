@@ -1,2 +1,2 @@
 # py-commons
-Common Python Library 
+This common python library is dedicated to metadata matching and finding regressions.
