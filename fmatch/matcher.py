@@ -84,7 +84,7 @@ class Matcher:
     def filter_runs(self,pdata,data):
         columns = ['uuid','jobConfig.jobIterations']
         pdf = pd.json_normalize(pdata)
-        pdf.to_csv("check.csv")
+        #print(pdf)
         pick_df = pd.DataFrame(pdf, columns=columns)
         iterations = pick_df.iloc[0]['jobConfig.jobIterations']
         df = pd.json_normalize(data)
@@ -119,7 +119,6 @@ class Matcher:
 
     def saveResults(self,csv_file_path="output.csv"):
         odf = pd.json_normalize(self.data)
-        odf.to_csv("check.csv")
         columns = ['uuid','timestamp', 'quantileName','metricName', 'P99']
         odf = pd.DataFrame(odf, columns=columns)
         odf = odf.sort_values(by=['timestamp'])
