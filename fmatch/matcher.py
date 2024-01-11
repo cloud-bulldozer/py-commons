@@ -4,6 +4,7 @@ import pandas as pd
 
 import os
 import csv
+import json 
 
 ES_URL=os.getenv("ES_SERVER")
 
@@ -57,7 +58,7 @@ class Matcher:
             }
         },
         "size": 10000
-    }
+        }
         result = self.es.search(index=index, body=query)
         hits = result.get('hits', {}).get('hits', [])
         uuids=[hit['_source']['uuid'] for hit in hits]
@@ -84,7 +85,6 @@ class Matcher:
     def filter_runs(self,pdata,data):
         columns = ['uuid','jobConfig.jobIterations']
         pdf = pd.json_normalize(pdata)
-        #print(pdf)
         pick_df = pd.DataFrame(pdf, columns=columns)
         iterations = pick_df.iloc[0]['jobConfig.jobIterations']
         df = pd.json_normalize(data)
@@ -111,16 +111,82 @@ class Matcher:
             },
             "size":10000
         }
-        #print(query)
         result=self.es.search(index=index,body=query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
-        self.data=runs
         return runs
-
-    def saveResults(self,csv_file_path="output.csv"):
-        odf = pd.json_normalize(self.data)
-        columns = ['uuid','timestamp', 'quantileName','metricName', 'P99']
-        odf = pd.DataFrame(odf, columns=columns)
+    
+    def burner_cpu_results(self,uuids,namespace,index):
+        ids = "\" OR uuid: \"".join(uuids)
+        query = {
+            "aggs": {
+                "time": {
+                "terms": {
+                    "field": "uuid.keyword",
+                    "size":10000
+                },
+                "aggs": {
+                    "time": {
+                    "avg": {
+                        "field": "timestamp"}
+                    }
+                }
+            },
+            "uuid": {
+                "terms": {
+                    "field": "uuid.keyword",
+                    "size":10000
+                },
+                "aggs": {
+                    "cpu": {
+                        "avg": {
+                            "field": "value"
+                            }
+                        }
+                    }
+                }
+            },
+            "query": {
+                "bool": {
+                    "must": [{
+                        "query_string": {
+                            "query": (
+                                f'( uuid: \"{ids}\" )'
+                                f' AND metricName: "containerCPU"'
+                                f' AND labels.namespace.keyword: {namespace}'
+                            )
+                        }
+                    }]
+                }
+            },
+            "size":10000
+        }
+        runs=self.es.search(index=index,body=query)
+        data=self.parse_burner_cpu_results(runs)
+        return data
+    
+    def parse_burner_cpu_results(self,data: dict):
+        res = []
+        stamps = data['aggregations']['time']['buckets']
+        cpu = data['aggregations']['uuid']['buckets']
+        for stamp in stamps :
+            dat = {}
+            dat['uuid'] = stamp['key']
+            dat['timestamp'] = stamp['time']['value_as_string']
+            acpu = next(item for item in cpu if item["key"] == stamp['key'])
+            dat['cpu_avg'] = acpu['cpu']['value']
+            res.append(dat)
+        return res
+    
+    def convert_to_df(self,data,columns=None):
+        odf = pd.json_normalize(data)
+        if columns!=None:
+            odf = pd.DataFrame(odf, columns=columns)
         odf = odf.sort_values(by=['timestamp'])
-        odf.to_csv(csv_file_path)
+        return odf
+
+
+    def save_results(self,df,csv_file_path="output.csv",columns=None):
+        if columns!=None:
+            df = pd.DataFrame(df, columns=columns)
+        df.to_csv(csv_file_path)
 
