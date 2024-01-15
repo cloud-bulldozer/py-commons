@@ -7,17 +7,22 @@ from elasticsearch7 import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 # pylint: disable=import-error
 import pandas as pd
+import yaml
+
+
 
 ES_URL = os.getenv("ES_SERVER")
 
 class Matcher:
     """ Matcher
     """
-    def __init__(self, index="perf_scale_ci"):
+    def __init__(self, configpath="config.yaml", index="perf_scale_ci"):
         self.index = index
         self.es_url = ES_URL
+        with open(configpath, 'r',encoding='UTF-8') as file:
+            data = yaml.safe_load(file)
         self.es = Elasticsearch([self.es_url], http_auth=[
-                                "username", "password"])
+                                data['username'], data['password']], timeout=30)
         self.data = None
 
     def get_metadata_by_uuid(self, uuid, index=None):
@@ -229,9 +234,9 @@ class Matcher:
             _type_: _description_
         """
         odf = pd.json_normalize(data)
+        odf = odf.sort_values(by=['timestamp'])
         if columns is not None:
             odf = pd.DataFrame(odf, columns=columns)
-        odf = odf.sort_values(by=['timestamp'])
         return odf
 
     def save_results(self, df, csv_file_path="output.csv", columns=None):
