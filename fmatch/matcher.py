@@ -10,12 +10,14 @@ from elasticsearch.exceptions import NotFoundError
 # pylint: disable=import-error
 import pandas as pd
 
+
 ES_URL = os.getenv("ES_SERVER")
 
 
 class Matcher:
     """ Matcher
     """
+
 
     def __init__(self, index="perf_scale_ci", level=logging.INFO):
         self.index = index
