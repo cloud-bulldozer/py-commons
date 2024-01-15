@@ -22,7 +22,7 @@ class Matcher:
     def __init__(self, index="perf_scale_ci", level=logging.INFO):
         self.index = index
         self.es_url = ES_URL
-        self.searchSize = 10000
+        self.search_size = 10000
         self.logger = logging.getLogger("Matcher")
         self.logger.setLevel(level)
         handler = logging.StreamHandler(sys.stdout)
@@ -94,7 +94,7 @@ class Matcher:
                     ]
                 }
             },
-            "size": self.searchSize
+            "size": self.search_size
         }
         result = self.query_index(index, query)
         hits = result.get('hits', {}).get('hits', [])
@@ -117,7 +117,7 @@ class Matcher:
                     )
                 }
             },
-            "size": self.searchSize
+            "size": self.search_size
         }
         result = self.query_index(index, query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
@@ -141,7 +141,7 @@ class Matcher:
                     )
                 }
             },
-            "size": self.searchSize
+            "size": self.search_size
         }
         result = self.query_index(index, query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
@@ -189,7 +189,7 @@ class Matcher:
                     )
                 }
             },
-            "size": self.searchSize
+            "size": self.search_size
         }
         result = self.query_index(index, query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
@@ -210,7 +210,7 @@ class Matcher:
                 "time": {
                     "terms": {
                         "field": "uuid.keyword",
-                        "size": self.searchSize
+                        "size": self.search_size
                     },
                     "aggs": {
                         "time": {
@@ -222,7 +222,7 @@ class Matcher:
                 "uuid": {
                     "terms": {
                         "field": "uuid.keyword",
-                        "size": self.searchSize
+                        "size": self.search_size
                     },
                     "aggs": {
                         "cpu": {
@@ -246,7 +246,7 @@ class Matcher:
                     }]
                 }
             },
-            "size": self.searchSize
+            "size": self.search_size
         }
         runs = self.query_index(index, query)
         data = self.parse_burner_cpu_results(runs)
