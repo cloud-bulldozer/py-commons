@@ -1,28 +1,37 @@
 """ metadata matcher
 """
 import os
+import sys
+import logging
 # pylint: disable=import-error
 from elasticsearch7 import Elasticsearch
 # pylint: disable=import-error
 from elasticsearch.exceptions import NotFoundError
 # pylint: disable=import-error
 import pandas as pd
-import yaml
-
-
 
 ES_URL = os.getenv("ES_SERVER")
+
 
 class Matcher:
     """ Matcher
     """
-    def __init__(self, configpath="config.yaml", index="perf_scale_ci"):
+
+    def __init__(self, index="perf_scale_ci", level=logging.INFO):
         self.index = index
         self.es_url = ES_URL
-        with open(configpath, 'r',encoding='UTF-8') as file:
-            data = yaml.safe_load(file)
-        self.es = Elasticsearch([self.es_url], http_auth=[
-                                data['username'], data['password']], timeout=30)
+        self.searchSize = 10000
+        self.logger = logging.getLogger("Matcher")
+        self.logger.setLevel(level)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setLevel(level)
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        # We can set the ES logging higher if we want additional debugging
+        logging.getLogger("elasticsearch").setLevel(logging.WARN)
+        self.es = Elasticsearch([self.es_url], timeout=30)
         self.data = None
 
     def get_metadata_by_uuid(self, uuid, index=None):
@@ -39,6 +48,7 @@ class Matcher:
         }
         result = {}
         try:
+            self.logger.info("Executing query against index %s",index)
             result = self.es.search(index=index, body=query)
             hits = result.get('hits', {}).get('hits', [])
             if hits:
@@ -46,6 +56,18 @@ class Matcher:
         except NotFoundError:
             print(f"UUID {uuid} not found in index {index}")
         return result
+
+    def query_index(self, index, query):
+        """ generic query function
+
+        Args:
+            index (str): _description_
+            uuids (list): _description_
+            query (str) : Query to make against ES
+        """
+        self.logger.info("Executing query against index=%s",index)
+        self.logger.debug("Executing query \r\n%s",query)
+        return self.es.search(index=index, body=query)
 
     def get_uuid_by_metadata(self, meta, index=None):
         """ get_uuid_by_metadata
@@ -70,12 +92,34 @@ class Matcher:
                     ]
                 }
             },
-            "size": 10000
+            "size": self.searchSize
         }
-        result = self.es.search(index=index, body=query)
+        result = self.query_index(index, query)
         hits = result.get('hits', {}).get('hits', [])
         uuids = [hit['_source']['uuid'] for hit in hits]
         return uuids
+
+    def match_k8s_netperf(self, uuids):
+        """_summary_
+
+        Args:
+            uuids (_type_): _description_
+        """
+        index = "k8s-netperf"
+        ids = "\" OR uuid: \"".join(uuids)
+        query = {
+            "query": {
+                "query_string": {
+                    "query": (
+                        f'( uuid: \"{ids}\" )'
+                    )
+                }
+            },
+            "size": self.searchSize
+        }
+        result = self.query_index(index, query)
+        runs = [item['_source'] for item in result["hits"]["hits"]]
+        return runs
 
     def match_kube_burner(self, uuids):
         """ match kube burner runs
@@ -95,9 +139,9 @@ class Matcher:
                     )
                 }
             },
-            "size": 10000
+            "size": self.searchSize
         }
-        result = self.es.search(index=index, body=query)
+        result = self.query_index(index, query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
         return runs
 
@@ -143,9 +187,9 @@ class Matcher:
                     )
                 }
             },
-            "size": 10000
+            "size": self.searchSize
         }
-        result = self.es.search(index=index, body=query)
+        result = self.query_index(index, query)
         runs = [item['_source'] for item in result["hits"]["hits"]]
         return runs
 
@@ -164,7 +208,7 @@ class Matcher:
                 "time": {
                     "terms": {
                         "field": "uuid.keyword",
-                        "size": 10000
+                        "size": self.searchSize
                     },
                     "aggs": {
                         "time": {
@@ -176,7 +220,7 @@ class Matcher:
                 "uuid": {
                     "terms": {
                         "field": "uuid.keyword",
-                        "size": 10000
+                        "size": self.searchSize
                     },
                     "aggs": {
                         "cpu": {
@@ -200,9 +244,9 @@ class Matcher:
                     }]
                 }
             },
-            "size": 10000
+            "size": self.searchSize
         }
-        runs = self.es.search(index=index, body=query)
+        runs = self.query_index(index, query)
         data = self.parse_burner_cpu_results(runs)
         return data
 
