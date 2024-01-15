@@ -7,7 +7,6 @@ from elasticsearch7 import Elasticsearch
 from elasticsearch.exceptions import NotFoundError
 # pylint: disable=import-error
 import pandas as pd
-import yaml
 
 
 
@@ -16,13 +15,10 @@ ES_URL = os.getenv("ES_SERVER")
 class Matcher:
     """ Matcher
     """
-    def __init__(self, configpath="config.yaml", index="perf_scale_ci"):
+    def __init__(self, index="perf_scale_ci"):
         self.index = index
         self.es_url = ES_URL
-        with open(configpath, 'r',encoding='UTF-8') as file:
-            data = yaml.safe_load(file)
-        self.es = Elasticsearch([self.es_url], http_auth=[
-                                data['username'], data['password']], timeout=30)
+        self.es = Elasticsearch(self.es_url, timeout=30)
         self.data = None
 
     def get_metadata_by_uuid(self, uuid, index=None):
