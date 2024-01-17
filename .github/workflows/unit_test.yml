@@ -6,6 +6,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    env:
+      ES_SERVER: ${{ secrets.ES_SERVER }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -13,13 +16,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.11
 
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt  # Replace with your requirements file if applicable
+        pip install -r fmatch/requirements.txt 
 
     - name: Run pytest
       run: |
-        python -m pytest pytest fmatch/tests --cov --random-order
+        python -m pytest fmatch/tests --cov --random-order

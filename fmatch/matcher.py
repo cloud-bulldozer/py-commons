@@ -261,9 +261,7 @@ class Matcher:
         """
         res = []
         stamps = data['aggregations']['time']['buckets']
-        print("stamp",stamps)
         cpu = data['aggregations']['uuid']['buckets']
-        print("cpu",cpu)
         for stamp in stamps:
             dat = {}
             dat['uuid'] = stamp['key']
@@ -271,7 +269,6 @@ class Matcher:
             acpu = next(item for item in cpu if item["key"] == stamp['key'])
             dat['cpu_avg'] = acpu['cpu']['value']
             res.append(dat)
-        print("result",res)
         return res
 
     def convert_to_df(self, data, columns=None):

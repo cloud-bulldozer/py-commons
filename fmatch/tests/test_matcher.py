@@ -3,6 +3,7 @@ Unit Test file for fmatch.py
 """
 #pylint: disable = redefined-outer-name
 #pylint: disable = missing-function-docstring
+#pylint: disable = import-error
 import os
 
 from elasticsearch.exceptions import NotFoundError
