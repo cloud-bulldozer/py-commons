@@ -173,7 +173,7 @@ class Matcher:
         Returns:
             _type_: _description_
         """
-        if len(uuids) > 1:
+        if len(uuids) >= 1:
             if len(uuid) > 0:
                 uuids.remove(uuid)
         if len(uuids) < 1:
