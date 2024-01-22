@@ -5,6 +5,7 @@ Unit Test file for fmatch.py
 #pylint: disable = missing-function-docstring
 #pylint: disable = import-error
 import os
+from unittest.mock import patch
 
 from elasticsearch.exceptions import NotFoundError
 import pytest
@@ -12,6 +13,7 @@ import pandas as pd
 
 #pylint: disable = import-error
 from fmatch.matcher import Matcher
+
 
 
 @pytest.fixture
@@ -24,10 +26,11 @@ def matcher_instance():
             ]
         }
     }
-    match = Matcher(index="perf-scale-ci")
-    match.es.search = lambda *args, **kwargs: sample_output
-    return match
-
+    with patch('fmatch.matcher.Elasticsearch') as mock_es:
+        mock_es_instance = mock_es.return_value
+        mock_es_instance.search.return_value = sample_output
+        match = Matcher(index="perf-scale-ci")
+        return match
 
 def test_get_metadata_by_uuid_found(matcher_instance):
     uuid = "test_uuid"
