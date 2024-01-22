@@ -37,6 +37,8 @@ ovn_cpu = match.burner_cpu_results(
     ids, "openshift-ovn-kubernetes", "ripsaw-kube-burner*")
 etcd_cpu = match.burner_cpu_results(
     ids, "openshift-etcd", "ripsaw-kube-burner*")
+ovn_mem = match.burner_mem_results(
+    ids, "openshift-ovn-kubernetes", "ripsaw-kube-burner*")
 
 podl_df = match.convert_to_df(
     podl, columns=['uuid', 'timestamp', 'quantileName', 'P99'])

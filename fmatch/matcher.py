@@ -195,14 +195,14 @@ class Matcher:
         runs = [item['_source'] for item in result["hits"]["hits"]]
         return runs
 
-    def burner_cpu_results(self, uuids, namespace, index):
-        """ kube burner CPU aggregated results for a namespace
+    def burner_metric_query(self, uuids, namespace, index, metricName):
+        """ burner_metric_query will query for specific metricName data.
+
         Args:
-            uuids (_type_): _description_
-            namespace (_type_): _description_
-            index (_type_): _description_
-        Returns:
-            _type_: _description_
+            uuids (list): List of uuids
+            namespace (str): namespace we are interested in
+            index (str): ES/OS Index to query from
+            metricName (str): metricName defined in kube-burner metrics
         """
         ids = "\" OR uuid: \"".join(uuids)
         query = {
@@ -239,7 +239,7 @@ class Matcher:
                         "query_string": {
                             "query": (
                                 f'( uuid: \"{ids}\" )'
-                                f' AND metricName: "containerCPU"'
+                                f' AND metricName: {metricName}'
                                 f' AND labels.namespace.keyword: {namespace}'
                             )
                         }
@@ -251,6 +251,28 @@ class Matcher:
         runs = self.query_index(index, query)
         data = self.parse_burner_cpu_results(runs)
         return data
+
+    def burner_cpu_results(self, uuids, namespace, index):
+        """ kube burner CPU aggregated results for a namespace
+        Args:
+            uuids (_type_): _description_
+            namespace (_type_): _description_
+            index (_type_): _description_
+        Returns:
+            _type_: _description_
+        """
+        return self.burner_metric_query(uuids, namespace, index, "containerCPU")
+
+    def burner_mem_results(self, uuids, namespace, index):
+        """ kube burner memory aggregated results for a namespace
+        Args:
+            uuids (_type_): _description_
+            namespace (_type_): _description_
+            index (_type_): _description_
+        Returns:
+            _type_: _description_
+        """
+        return self.burner_metric_query(uuids, namespace, index, "containerMemory")
 
     def parse_burner_cpu_results(self, data: dict):
         """ parse out CPU data from kube-burner query
