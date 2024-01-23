@@ -138,6 +138,7 @@ class Matcher:
                     "query": (
                         f'( uuid: \"{ids}\" )'
                         f' AND metricName: "jobSummary"'
+                        f' AND NOT (jobConfig.name: "garbage-collection")'
                     )
                 }
             },
@@ -186,6 +187,7 @@ class Matcher:
                         f'( uuid: \"{ids}\" )'
                         f' AND metricName: "podLatencyQuantilesMeasurement"'
                         f' AND quantileName: "Ready"'
+                        f' AND NOT (jobConfig.name: "garbage-collection")'
                     )
                 }
             },
