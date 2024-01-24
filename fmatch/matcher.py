@@ -1,5 +1,6 @@
 """ metadata matcher
 """
+#pylint: disable = invalid-name
 import os
 import sys
 import logging
@@ -11,7 +12,7 @@ from elasticsearch.exceptions import NotFoundError
 import pandas as pd
 
 
-ES_URL = os.getenv("ES_SERVER")
+
 
 
 class Matcher:
@@ -19,7 +20,7 @@ class Matcher:
     """
 
 
-    def __init__(self, index="perf_scale_ci", level=logging.INFO):
+    def __init__(self, index="perf_scale_ci", level=logging.INFO, ES_URL=os.getenv("ES_SERVER")):
         self.index = index
         self.es_url = ES_URL
         self.search_size = 10000
