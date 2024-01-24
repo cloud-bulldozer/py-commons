@@ -11,7 +11,7 @@ from elasticsearch.exceptions import NotFoundError
 import pandas as pd
 
 
-ES_URL = os.getenv("ES_SERVER")
+
 
 
 class Matcher:
@@ -20,6 +20,7 @@ class Matcher:
 
 
     def __init__(self, index="perf_scale_ci", level=logging.INFO):
+        ES_URL = os.getenv("ES_SERVER") #pylint: disable = invalid-name
         self.index = index
         self.es_url = ES_URL
         self.search_size = 10000
@@ -197,7 +198,7 @@ class Matcher:
         runs = [item['_source'] for item in result["hits"]["hits"]]
         return runs
 
-    def burner_metric_query(self, uuids, namespace, index, metricName):
+    def burner_metric_query(self, uuids, namespace, index, metric_name):
         """ burner_metric_query will query for specific metricName data.
 
         Args:
@@ -241,7 +242,7 @@ class Matcher:
                         "query_string": {
                             "query": (
                                 f'( uuid: \"{ids}\" )'
-                                f' AND metricName: {metricName}'
+                                f' AND metricName: {metric_name}'
                                 f' AND labels.namespace.keyword: {namespace}'
                             )
                         }
