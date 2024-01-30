@@ -215,6 +215,36 @@ def test_parse_burner_cpu_results(matcher_instance):
     assert result == expected
 
 
+def test_parse_agg_results(matcher_instance):
+    mock_data = {"aggregations": {"time": {"buckets": []}, "uuid": {"buckets": []}}}
+    mock_data["aggregations"]["time"]["buckets"] = [
+        {
+            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
+            "doc_count": 1110,
+            "time": {
+                "value": 1705349944941.3918,
+                "value_as_string": "2024-01-15T20:19:04.941Z",
+            },
+        }
+    ]
+    mock_data["aggregations"]["uuid"]["buckets"] = [
+        {
+            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
+            "doc_count": 1110,
+            "cpu": {"value": 10.818089329872935},
+        }
+    ]
+    expected = [
+        {
+            "uuid": "90189fbf-7181-4129-8ca5-3cc8d656b595",
+            "timestamp": "2024-01-15T20:19:04.941Z",
+            "cpu_avg": 10.818089329872935,
+        }
+    ]
+    result = matcher_instance.parse_agg_results(mock_data, "cpu", "avg")
+    assert result == expected
+
+
 def test_convert_to_df(matcher_instance):
     mock_data = [
         {
