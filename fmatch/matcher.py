@@ -191,7 +191,7 @@ class Matcher:
                         if isinstance(v1,str):
                             v1 = f'"{v1}"'
                         metric_string += f" AND NOT ({k1}: {v1})"
-            elif isinstance(v,str) and not k in ['metric','metric_of_interest']:
+            elif isinstance(v,str) and not k in ['name','metric_of_interest']:
                 if v != "*":
                     v = f'"{v}"'
                 metric_string += f" AND {k}: {v}"
@@ -258,7 +258,7 @@ class Matcher:
                         if isinstance(v1,str):
                             v1 = f'"{v1}"'
                         metric_string += f" AND NOT ({k1}: {v1})"
-            elif isinstance(v,str) and not k in ['metric', 'metric_of_interest']:
+            elif isinstance(v,str) and not k in ['name', 'metric_of_interest']:
                 if v != "*":
                     v = f'"{v}"'
                 metric_string += f" AND {k}: {v}"
