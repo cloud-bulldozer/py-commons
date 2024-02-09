@@ -3,10 +3,8 @@ test_fmatch
 """
 
 import sys
-
-import pandas as pd
-
 # pylint: disable=import-error
+import pandas as pd
 
 # pylint: disable=import-error
 from matcher import Matcher
