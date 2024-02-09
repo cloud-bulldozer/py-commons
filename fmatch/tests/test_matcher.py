@@ -1,19 +1,20 @@
 """
 Unit Test file for fmatch.py
 """
-#pylint: disable = redefined-outer-name
-#pylint: disable = missing-function-docstring
-#pylint: disable = import-error
+
+# pylint: disable = redefined-outer-name
+# pylint: disable = missing-function-docstring
+# pylint: disable = import-error, duplicate-code
 import os
 from unittest.mock import patch
 
-from elasticsearch.exceptions import NotFoundError
+from elasticsearch_dsl import Search
+from elasticsearch_dsl.response import Response
 import pytest
 import pandas as pd
 
-#pylint: disable = import-error
+# pylint: disable = import-error
 from fmatch.matcher import Matcher
-
 
 
 @pytest.fixture
@@ -26,11 +27,12 @@ def matcher_instance():
             ]
         }
     }
-    with patch('fmatch.matcher.Elasticsearch') as mock_es:
+    with patch("fmatch.matcher.Elasticsearch") as mock_es:
         mock_es_instance = mock_es.return_value
         mock_es_instance.search.return_value = sample_output
         match = Matcher(index="perf-scale-ci")
         return match
+
 
 def test_get_metadata_by_uuid_found(matcher_instance):
     uuid = "test_uuid"
@@ -39,22 +41,10 @@ def test_get_metadata_by_uuid_found(matcher_instance):
     assert result == expected
 
 
-def test_get_metadata_by_uuid_not_found(matcher_instance):
-    def raise_exception():
-        raise NotFoundError(404, "index_not_found_exception", "no such index [sample]")
-
-    # Mock Elasticsearch response for testing NotFoundError
-    matcher_instance.es.search = lambda *args, **kwargs: raise_exception()
-    uuid = "nonexistent_uuid"
-    result = matcher_instance.get_metadata_by_uuid(uuid=uuid, index="sample index")
-    expected = {}
-    assert result == expected
-
-
 def test_query_index(matcher_instance):
-    index = "test_uuid"
-    query = "test_query"
-    result = matcher_instance.query_index(index, query)
+    index = "test_index"
+    search = Search(using=matcher_instance.es, index=index)
+    result = matcher_instance.query_index(index, search)
     expected = {
         "hits": {
             "hits": [
@@ -72,53 +62,21 @@ def test_get_uuid_by_metadata(matcher_instance):
             "hits": [{"_source": {"uuid": "uuid1"}}, {"_source": {"uuid": "uuid2"}}]
         }
     }
-    meta = {"field1": "value1", "ocpVersion": "4.15"}
+    meta = {
+        "field1": "value1",
+        "ocpVersion": "4.15",
+    }
     result = matcher_instance.get_uuid_by_metadata(meta)
     expected = ["uuid1", "uuid2"]
     assert result == expected
 
 
-def test_match_k8s_netperf(matcher_instance):
-    result = matcher_instance.match_k8s_netperf(["uuid1"])
-    expected = [
-        {"uuid": "uuid1", "field1": "value1"},
-        {"uuid": "uuid2", "field1": "value2"},
-    ]
-    assert result == expected
-
-
-def test_match_kube_bruner(matcher_instance):
+def test_match_kube_burner(matcher_instance):
     result = matcher_instance.match_kube_burner(["uuid1"])
     expected = [
         {"uuid": "uuid1", "field1": "value1"},
         {"uuid": "uuid2", "field1": "value2"},
     ]
-    assert result == expected
-
-
-def test_burner_results(matcher_instance):
-    result = matcher_instance.burner_results(
-        "uuid1", ["uuid1", "uuid1"], "sample_index"
-    )
-    expected = [
-        {"uuid": "uuid1", "field1": "value1"},
-        {"uuid": "uuid2", "field1": "value2"},
-    ]
-    assert result == expected
-
-
-def test_burner_results_single_element(matcher_instance):
-    result = matcher_instance.burner_results("uuid1", ["uuid1"], "sample_index")
-    expected = []
-    assert result == expected
-
-
-def test_burner_cpu_results(matcher_instance):
-    matcher_instance.parse_burner_cpu_results = lambda *args, **kwargs: {}
-    result = matcher_instance.burner_cpu_results(
-        ["uuid1", "uuid2"], "sample_namespace", "sample_index"
-    )
-    expected = {}
     assert result == expected
 
 
@@ -185,63 +143,140 @@ def test_filter_runs(matcher_instance):
     assert result == expected
 
 
-def test_parse_burner_cpu_results(matcher_instance):
-    mock_data = {"aggregations": {"time": {"buckets": []}, "uuid": {"buckets": []}}}
-    mock_data["aggregations"]["time"]["buckets"] = [
-        {
-            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "doc_count": 1110,
-            "time": {
-                "value": 1705349944941.3918,
-                "value_as_string": "2024-01-15T20:19:04.941Z",
-            },
-        }
-    ]
-    mock_data["aggregations"]["uuid"]["buckets"] = [
-        {
-            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "doc_count": 1110,
-            "cpu": {"value": 10.818089329872935},
-        }
-    ]
+# def test_parse_agg_results(matcher_instance):
+#     # Mocked data for the Elasticsearch DSL query response
+#     response_data = {
+#         "aggregations": {
+#             "time": {
+#                 "buckets": [
+#                     {"key": "uuid1", "time": {"value_as_string": "2022-01-01T00:00:00"}},
+#                     {"key": "uuid2", "time": {"value_as_string": "2022-01-01T01:00:00"}},
+#                 ]
+#             },
+#             "uuid": {
+#                 "buckets": [
+#                     {"key": "uuid1", "your_agg_field": {"value": 10}},
+#                     {"key": "uuid2", "your_agg_field": {"value": 20}},
+#                 ]
+#             },
+#         }
+#     }
+
+#     # Call the parse_agg_results method
+#     parsed_results = matcher_instance.parse_agg_results(response_data, "your_agg_field", "avg")
+
+#     # Define the expected result
+#     expected = [
+#         {"uuid": "uuid1", "timestamp": "2022-01-01T00:00:00", "your_agg_field_avg": 10},
+#         {"uuid": "uuid2", "timestamp": "2022-01-01T01:00:00", "your_agg_field_avg": 20},
+#     ]
+
+#     # Assert the result matches the expected value
+#     assert parsed_results == expected
+
+
+def test_getResults(matcher_instance):
+    test_uuid = "uuid1"
+    test_uuids = ["uuid1", "uuid2"]
+    test_metrics = {
+        "name": "podReadyLatency",
+        "metricName": "podLatencyQuantilesMeasurement",
+        "quantileName": "Ready",
+        "metric_of_interest": "P99",
+        "not": {"jobConfig.name": "garbage-collection"},
+    }
+    result = matcher_instance.getResults(
+        test_uuid, test_uuids, "test_index", test_metrics
+    )
     expected = [
-        {
-            "uuid": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "timestamp": "2024-01-15T20:19:04.941Z",
-            "cpu_avg": 10.818089329872935,
-        }
+        {"uuid": "uuid1", "field1": "value1"},
+        {"uuid": "uuid2", "field1": "value2"},
     ]
-    result = matcher_instance.parse_burner_cpu_results(mock_data)
     assert result == expected
 
 
-def test_parse_agg_results(matcher_instance):
-    mock_data = {"aggregations": {"time": {"buckets": []}, "uuid": {"buckets": []}}}
-    mock_data["aggregations"]["time"]["buckets"] = [
-        {
-            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "doc_count": 1110,
+def test_get_agg_metric_query(matcher_instance):
+    test_uuids = ["uuid1", "uuid2"]
+    test_metrics = {
+        "name": "apiserverCPU",
+        "metricName": "containerCPU",
+        "labels.namespace": "openshift-kube-apiserver",
+        "metric_of_interest": "value",
+        "agg": {"value": "cpu", "agg_type": "avg"},
+    }
+    data_dict = {
+        "aggregations": {
             "time": {
-                "value": 1705349944941.3918,
-                "value_as_string": "2024-01-15T20:19:04.941Z",
+                "buckets": [
+                    {
+                        "key": "uuid1",
+                        "time": {"value_as_string": "2024-02-09T12:00:00"},
+                    },
+                    {
+                        "key": "uuid2",
+                        "time": {"value_as_string": "2024-02-09T13:00:00"},
+                    },
+                ]
+            },
+            "uuid": {
+                "buckets": [
+                    {"key": "uuid1", "cpu": {"value": 42}},
+                    {"key": "uuid2", "cpu": {"value": 56}},
+                ]
             },
         }
-    ]
-    mock_data["aggregations"]["uuid"]["buckets"] = [
-        {
-            "key": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "doc_count": 1110,
-            "cpu": {"value": 10.818089329872935},
-        }
-    ]
+    }
     expected = [
-        {
-            "uuid": "90189fbf-7181-4129-8ca5-3cc8d656b595",
-            "timestamp": "2024-01-15T20:19:04.941Z",
-            "cpu_avg": 10.818089329872935,
-        }
+        {"uuid": "uuid1", "timestamp": "2024-02-09T12:00:00", "cpu_avg": 42},
+        {"uuid": "uuid2", "timestamp": "2024-02-09T13:00:00", "cpu_avg": 56},
     ]
-    result = matcher_instance.parse_agg_results(mock_data, "cpu", "avg")
+    matcher_instance.query_index = lambda *args, **kwargs: Response(
+        response=data_dict, search=data_dict
+    )
+
+    result = matcher_instance.get_agg_metric_query(
+        test_uuids, "test_index", test_metrics
+    )
+    assert result == expected
+
+
+def test_get_agg_metric_query_no_agg_values(matcher_instance):
+    test_uuids = ["uuid1", "uuid2"]
+    test_metrics = {
+        "name": "apiserverCPU",
+        "metricName": "containerCPU",
+        "labels.namespace": "openshift-kube-apiserver",
+        "metric_of_interest": "value",
+        "agg": {"value": "cpu", "agg_type": "avg"},
+    }
+    data_dict = {
+        "aggregations": {
+            "time": {
+                "buckets": [
+                    {
+                        "key": "uuid1",
+                        "time": {"value_as_string": "2024-02-09T12:00:00"},
+                    },
+                    {
+                        "key": "uuid2",
+                        "time": {"value_as_string": "2024-02-09T13:00:00"},
+                    },
+                ]
+            },
+            "uuid": {"buckets": []},
+        }
+    }
+    expected = [
+        {"uuid": "uuid1", "timestamp": "2024-02-09T12:00:00", "cpu_avg": None},
+        {"uuid": "uuid2", "timestamp": "2024-02-09T13:00:00", "cpu_avg": None},
+    ]
+    matcher_instance.query_index = lambda *args, **kwargs: Response(
+        response=data_dict, search=data_dict
+    )
+
+    result = matcher_instance.get_agg_metric_query(
+        test_uuids, "test_index", test_metrics
+    )
     assert result == expected
 
 

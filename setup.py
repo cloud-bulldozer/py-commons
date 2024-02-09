@@ -4,7 +4,7 @@ setup file for fmatch package
 from setuptools import setup, find_packages
 
 
-VERSION = '0.0.4'
+VERSION = '0.0.5'
 DESCRIPTION = 'Common package for matching runs with provided metadata'
 # pylint: disable= line-too-long
 LONG_DESCRIPTION = "A package that allows to match metadata and get runs and create csv files with queried metrics"
@@ -19,7 +19,7 @@ setup(
     long_description_content_type="text/x-rst",
     long_description=LONG_DESCRIPTION,
     packages=find_packages(),
-    install_requires=['elasticsearch7==7.13.0', 'elasticsearch', 'pyyaml','pandas'],
+    install_requires=['elasticsearch==7.13.0', 'elasticsearch-dsl', 'pyyaml','pandas'],
     keywords=['python', 'matching', 'red hat', 'perf-scale', 'matcher', 'orion'],
     classifiers=[
         "Development Status :: 1 - Planning",

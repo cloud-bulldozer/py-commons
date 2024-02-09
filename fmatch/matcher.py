@@ -1,26 +1,26 @@
 """ metadata matcher
 """
-#pylint: disable = invalid-name
+
+# pylint: disable = invalid-name, invalid-unary-operand-type
 import os
 import sys
 import logging
+
 # pylint: disable=import-error
-from elasticsearch7 import Elasticsearch
-# pylint: disable=import-error
-from elasticsearch.exceptions import NotFoundError
+from elasticsearch import Elasticsearch
+
+
 # pylint: disable=import-error
 import pandas as pd
-
-
-
+from elasticsearch_dsl import Search, Q
 
 
 class Matcher:
-    """ Matcher
-    """
+    """Matcher"""
 
-
-    def __init__(self, index="perf_scale_ci", level=logging.INFO, ES_URL=os.getenv("ES_SERVER")):
+    def __init__(
+        self, index="perf_scale_ci", level=logging.INFO, ES_URL=os.getenv("ES_SERVER")
+    ):
         self.index = index
         self.es_url = ES_URL
         self.search_size = 10000
@@ -29,7 +29,8 @@ class Matcher:
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(level)
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
         # We can set the ES logging higher if we want additional debugging
@@ -38,133 +39,103 @@ class Matcher:
         self.data = None
 
     def get_metadata_by_uuid(self, uuid, index=None):
-        """ get_metadata_by_uuid
+        """Returns back metadata when uuid is given
+
+        Args:
+            uuid (str): uuid of the run
+            index (str, optional): index to be searched in. Defaults to None.
+
+        Returns:
+            _type_: _description_
         """
         if index is None:
             index = self.index
-        query = {
-            "query": {
-                "match": {
-                    "uuid": uuid
-                }
-            }
-        }
+        query = Q("match", uuid=uuid)
         result = {}
-        try:
-            self.logger.info("Executing query against index %s",index)
-            result = self.es.search(index=index, body=query)
-            hits = result.get('hits', {}).get('hits', [])
-            if hits:
-                result = dict(hits[0]['_source'])
-        except NotFoundError:
-            print(f"UUID {uuid} not found in index {index}")
+        s = Search(using=self.es, index=index).query(query)
+        res = self.query_index(index, s)
+        hits = res.hits.hits
+        if hits:
+            result = dict(hits[0].to_dict()["_source"])
         return result
 
-    def query_index(self, index, query):
-        """ generic query function
+    def query_index(self, index, search):
+        """generic query function
 
         Args:
             index (str): _description_
-            uuids (list): _description_
-            query (str) : Query to make against ES
+            search (Search) : Search object with query
         """
-        self.logger.info("Executing query against index=%s",index)
-        self.logger.debug("Executing query \r\n%s",query)
-        return self.es.search(index=index, body=query)
+        self.logger.info("Executing query against index=%s", index)
+        self.logger.debug("Executing query \r\n%s", search.to_dict())
+        return search.execute()
 
     def get_uuid_by_metadata(self, meta, index=None):
-        """ get_uuid_by_metadata
-        """
+        """get_uuid_by_metadata"""
         if index is None:
             index = self.index
         version = meta["ocpVersion"][:4]
-        query = {
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "query_string": {
-                                "query": ' AND '.join([
-                                    f'{field}: "{value}"' if isinstance(
-                                        value, str) else f'{field}: {value}'
-                                    for field, value in meta.items() if field != "ocpVersion"
-                                ]) +
-                                f' AND ocpVersion: {version}* AND jobStatus: success'
-                            }
-                        }
-                    ]
-                }
-            },
-            "size": self.search_size
-        }
-        result = self.query_index(index, query)
-        hits = result.get('hits', {}).get('hits', [])
-        uuids = [hit['_source']['uuid'] for hit in hits]
+        query = Q(
+            "bool",
+            must=[
+                Q(
+                    "match", **{field: str(value)}
+                )  # if isinstance(value, str) else Q('terms', **{field: value})
+                for field, value in meta.items()
+                if field not in "ocpVersion benchmark"
+            ]
+            + ([Q("match", **{"benchmark.keyword": meta["benchmark"]})]
+                if "benchmark" in meta else []),
+            filter=[
+                Q("wildcard", ocpVersion=f"{version}*"),
+                Q("match", jobStatus="success"),
+            ],
+        )
+        s = Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+        result = self.query_index(index, s)
+        hits = result.hits.hits
+        uuids = [hit.to_dict()["_source"]["uuid"] for hit in hits]
         return uuids
 
-    def match_k8s_netperf(self, uuids):
-        """_summary_
-
-        Args:
-            uuids (_type_): _description_
-        """
-        index = "k8s-netperf"
-        ids = "\" OR uuid: \"".join(uuids)
-        query = {
-            "query": {
-                "query_string": {
-                    "query": (
-                        f'( uuid: \"{ids}\" )'
-                    )
-                }
-            },
-            "size": self.search_size
-        }
-        result = self.query_index(index, query)
-        runs = [item['_source'] for item in result["hits"]["hits"]]
-        return runs
-
     def match_kube_burner(self, uuids):
-        """ match kube burner runs
+        """match kube burner runs
         Args:
             uuids (list): list of uuids
         Returns:
             list : list of runs
         """
         index = "ripsaw-kube-burner*"
-        ids = "\" OR uuid: \"".join(uuids)
-        query = {
-            "query": {
-                "query_string": {
-                    "query": (
-                        f'( uuid: \"{ids}\" )'
-                        f' AND metricName: "jobSummary"'
-                        f' AND NOT (jobConfig.name: "garbage-collection")'
-                    )
-                }
-            },
-            "size": self.search_size
-        }
-        result = self.query_index(index, query)
-        runs = [item['_source'] for item in result["hits"]["hits"]]
+        query = Q(
+            "bool",
+            filter=[
+                Q("terms", **{"uuid.keyword": uuids}),
+                Q("match", metricName="jobSummary"),
+                ~Q("match", **{"jobConfig.name": "garbage-collection"}),
+            ],
+        )
+        search = (
+            Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+        )
+        result = self.query_index(index, search)
+        runs = [item.to_dict()["_source"] for item in result.hits.hits]
         return runs
 
     def filter_runs(self, pdata, data):
-        """ filter out runs with different jobIterations
+        """filter out runs with different jobIterations
         Args:
             pdata (_type_): _description_
             data (_type_): _description_
         Returns:
             _type_: _description_
         """
-        columns = ['uuid', 'jobConfig.jobIterations']
+        columns = ["uuid", "jobConfig.jobIterations"]
         pdf = pd.json_normalize(pdata)
         pick_df = pd.DataFrame(pdf, columns=columns)
-        iterations = pick_df.iloc[0]['jobConfig.jobIterations']
+        iterations = pick_df.iloc[0]["jobConfig.jobIterations"]
         df = pd.json_normalize(data)
         ndf = pd.DataFrame(df, columns=columns)
-        ids_df = ndf.loc[df['jobConfig.jobIterations'] == iterations]
-        return ids_df['uuid'].to_list()
+        ids_df = ndf.loc[df["jobConfig.jobIterations"] == iterations]
+        return ids_df["uuid"].to_list()
 
     def getResults(self, uuid: str, uuids: list, index_str: str, metrics: dict):
         """
@@ -181,253 +152,104 @@ class Matcher:
         """
         if len(uuids) > 1 and uuid in uuids:
             uuids.remove(uuid)
-        ids = '" OR uuid: "'.join(uuids)
-        metric_string = ""
-        for k, v in metrics.items():
-            if k == "not":
-                for not_list in v:
-                    for k1, v1 in not_list.items():
-                        # f' AND NOT (jobConfig.name: "garbage-collection")'
-                        if isinstance(v1,str):
-                            v1 = f'"{v1}"'
-                        metric_string += f" AND NOT ({k1}: {v1})"
-            elif isinstance(v,str) and not k in ['name','metric_of_interest']:
-                if v != "*":
-                    v = f'"{v}"'
-                metric_string += f" AND {k}: {v}"
-        query = {
-            "query": {"query_string": {"query": (f'( uuid: "{ids}" )' + metric_string)}},
-            "size": self.search_size
-        }
-        result = self.query_index(index_str, query)
-        runs = [item['_source'] for item in result["hits"]["hits"]]
-        return runs
-
-    def burner_results(self, uuid, uuids, index):
-        """ kube burner podReadyLatency
-        Args:
-            uuid (_type_): _description_
-            uuids (_type_): _description_
-            index (_type_): _description_
-        Returns:
-            _type_: _description_
-        """
-        if len(uuids) >= 1:
-            if len(uuid) > 0:
-                uuids.remove(uuid)
-        if len(uuids) < 1:
-            return []
-        ids = "\" OR uuid: \"".join(uuids)
-        query = {
-            "query": {
-                "query_string": {
-                    "query": (
-                        f'( uuid: \"{ids}\" )'
-                        f' AND metricName: "podLatencyQuantilesMeasurement"'
-                        f' AND quantileName: "Ready"'
-                        f' AND NOT (jobConfig.name: "garbage-collection")'
-                    )
-                }
-            },
-            "size": self.search_size
-        }
-        result = self.query_index(index, query)
-        runs = [item['_source'] for item in result["hits"]["hits"]]
+        metric_queries = []
+        not_queries = [
+            ~Q("match", **{not_item_key: not_item_value})
+            for not_item_key, not_item_value in metrics["not"].items()
+        ]
+        metric_queries = [
+            Q("match", **{metric_key: f'"{metric_value}"'})
+            for metric_key, metric_value in metrics.items()
+            if metric_key not in ["name", "metric_of_interest", "not"]
+        ]
+        metric_query = Q("bool", must=metric_queries + not_queries)
+        query = Q(
+            "bool",
+            must=[
+                Q("terms", **{"uuid.keyword": uuids}),
+                metric_query,
+            ],
+        )
+        search = (
+            Search(using=self.es, index=index_str)
+            .query(query)
+            .extra(size=self.search_size)
+        )
+        result = self.query_index(index_str, search)
+        runs = [item.to_dict()["_source"] for item in result.hits.hits]
         return runs
 
     def get_agg_metric_query(self, uuids, index, metrics):
-        """ burner_metric_query will query for specific metrics data.
+        """burner_metric_query will query for specific metrics data.
 
         Args:
             uuids (list): List of uuids
             index (str): ES/OS Index to query from
             metrics (dict): metrics defined in es index metrics
         """
-        ids = "\" OR uuid: \"".join(uuids)
-        metric_string = ""
-        metric_of_interest = metrics['metric_of_interest']
-        for k, v in metrics.items():
-            if k == "agg":
-                agg_value = v["value"]
-                agg_type = v["agg_type"]
-
-            elif k == "not":
-                for not_list in v:
-                    for k1, v1 in not_list.items():
-                        # f' AND NOT (jobConfig.name: "garbage-collection")'
-                        if isinstance(v1,str):
-                            v1 = f'"{v1}"'
-                        metric_string += f" AND NOT ({k1}: {v1})"
-            elif isinstance(v,str) and not k in ['name', 'metric_of_interest']:
-                if v != "*":
-                    v = f'"{v}"'
-                metric_string += f" AND {k}: {v}"
-        query = {
-            "aggs": {
-                "time": {
-                    "terms": {
-                        "field": "uuid.keyword",
-                        "size": self.search_size
-                    },
-                    "aggs": {
-                        "time": {
-                            "avg": {
-                                "field": "timestamp"}
-                        }
-                    }
-                },
-                "uuid": {
-                    "terms": {
-                        "field": "uuid.keyword",
-                        "size": self.search_size
-                    },
-                    "aggs": {
-                        agg_value: {
-                            agg_type: {
-                                "field": metric_of_interest
-                            }
-                        }
-                    }
-                }
-            },
-            "query": {
-                "bool": {
-                    "must": [{
-                        "query_string": {
-                            "query": (
-                                f'( uuid: \"{ids}\" )' +
-                                metric_string
-                            )
-                        }
-                    }]
-                }
-            },
-            "size": self.search_size
-        }
-        runs = self.query_index(index, query)
-        self.logger.debug("Run details %s", str(runs))
-        data = self.parse_agg_results(runs, agg_value, agg_type)
+        metric_queries = []
+        not_queries = [
+            ~Q("match", **{not_item_key: not_item_value})
+            for not_item in metrics.get("not", [])
+            for not_item_key, not_item_value in not_item.items()
+        ]
+        metric_queries = [
+            Q("match", **{metric_key: f'"{metric_value}"'})
+            for metric_key, metric_value in metrics.items()
+            if metric_key not in ["name", "metric_of_interest", "not", "agg"]
+        ]
+        metric_query = Q("bool", must=metric_queries + not_queries)
+        query = Q(
+            "bool",
+            must=[
+                Q("terms", **{"uuid.keyword": uuids}),
+                metric_query,
+            ],
+        )
+        search = (
+            Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+        )
+        agg_value = metrics["agg"]["value"]
+        agg_type = metrics["agg"]["agg_type"]
+        search.aggs.bucket(
+            "time", "terms", field="uuid.keyword", size=self.search_size
+        ).metric("time", "avg", field="timestamp")
+        search.aggs.bucket(
+            "uuid", "terms", field="uuid.keyword", size=self.search_size
+        ).metric(agg_value, agg_type, field=metrics["metric_of_interest"])
+        result = self.query_index(index, search)
+        data = self.parse_agg_results(result, agg_value, agg_type)
         return data
-
-    def burner_metric_query(self, uuids, namespace, index, metricName):
-        """ burner_metric_query will query for specific metricName data.
-
-        Args:
-            uuids (list): List of uuids
-            namespace (str): namespace we are interested in
-            index (str): ES/OS Index to query from
-            metricName (str): metricName defined in kube-burner metrics
-        """
-        ids = "\" OR uuid: \"".join(uuids)
-        query = {
-            "aggs": {
-                "time": {
-                    "terms": {
-                        "field": "uuid.keyword",
-                        "size": self.search_size
-                    },
-                    "aggs": {
-                        "time": {
-                            "avg": {
-                                "field": "timestamp"}
-                        }
-                    }
-                },
-                "uuid": {
-                    "terms": {
-                        "field": "uuid.keyword",
-                        "size": self.search_size
-                    },
-                    "aggs": {
-                        "cpu": {
-                            "avg": {
-                                "field": "value"
-                            }
-                        }
-                    }
-                }
-            },
-            "query": {
-                "bool": {
-                    "must": [{
-                        "query_string": {
-                            "query": (
-                                f'( uuid: \"{ids}\" )'
-                                f' AND metricName: {metricName}'
-                                f' AND labels.namespace.keyword: {namespace}'
-                            )
-                        }
-                    }]
-                }
-            },
-            "size": self.search_size
-        }
-        runs = self.query_index(index, query)
-        data = self.parse_burner_cpu_results(runs)
-        return data
-
-    def burner_cpu_results(self, uuids, namespace, index):
-        """ kube burner CPU aggregated results for a namespace
-        Args:
-            uuids (_type_): _description_
-            namespace (_type_): _description_
-            index (_type_): _description_
-        Returns:
-            _type_: _description_
-        """
-        return self.burner_metric_query(uuids, namespace, index, "containerCPU")
-
-    def burner_mem_results(self, uuids, namespace, index):
-        """ kube burner memory aggregated results for a namespace
-        Args:
-            uuids (_type_): _description_
-            namespace (_type_): _description_
-            index (_type_): _description_
-        Returns:
-            _type_: _description_
-        """
-        return self.burner_metric_query(uuids, namespace, index, "containerMemory")
-
-    def parse_burner_cpu_results(self, data: dict):
-        """ parse out CPU data from kube-burner query
-        Args:
-            data (dict): _description_
-        Returns:
-            _type_: _description_
-        """
-        res = []
-        stamps = data['aggregations']['time']['buckets']
-        cpu = data['aggregations']['uuid']['buckets']
-        for stamp in stamps:
-            dat = {}
-            dat['uuid'] = stamp['key']
-            dat['timestamp'] = stamp['time']['value_as_string']
-            acpu = next(item for item in cpu if item["key"] == stamp['key'])
-            dat['cpu_avg'] = acpu['cpu']['value']
-            res.append(dat)
-        return res
 
     def parse_agg_results(self, data: dict, agg_value, agg_type):
-        """ parse out CPU data from kube-burner query
+        """parse out CPU data from kube-burner query
         Args:
-            data (dict): _description_
+            data (dict): Aggregated data from Elasticsearch DSL query
+            agg_value (str): Aggregation value field name
+            agg_type (str): Aggregation type (e.g., 'avg', 'sum', etc.)
         Returns:
-            _type_: _description_
+            list: List of parsed results
         """
         res = []
-        stamps = data['aggregations']['time']['buckets']
-        agg_buckets = data['aggregations']['uuid']['buckets']
+        stamps = data.aggregations.time.buckets
+        agg_buckets = data.aggregations.uuid.buckets
+
         for stamp in stamps:
             dat = {}
-            dat['uuid'] = stamp['key']
-            dat['timestamp'] = stamp['time']['value_as_string']
-            agg_values = next(item for item in agg_buckets if item["key"] == stamp['key'])
-            dat[agg_value + '_' + agg_type] = agg_values[agg_value]["value"]
+            dat["uuid"] = stamp.key
+            dat["timestamp"] = stamp.time.value_as_string
+            agg_values = next(
+                (item for item in agg_buckets if item.key == stamp.key), None
+            )
+            if agg_values:
+                dat[agg_value + "_" + agg_type] = agg_values[agg_value].value
+            else:
+                dat[agg_value + "_" + agg_type] = None
             res.append(dat)
         return res
 
     def convert_to_df(self, data, columns=None):
-        """ convert to a dataframe
+        """convert to a dataframe
         Args:
             data (_type_): _description_
             columns (_type_, optional): _description_. Defaults to None.
@@ -435,13 +257,13 @@ class Matcher:
             _type_: _description_
         """
         odf = pd.json_normalize(data)
-        odf = odf.sort_values(by=['timestamp'])
+        odf = odf.sort_values(by=["timestamp"])
         if columns is not None:
             odf = pd.DataFrame(odf, columns=columns)
         return odf
 
     def save_results(self, df, csv_file_path="output.csv", columns=None):
-        """ write results to CSV
+        """write results to CSV
         Args:
             df (_type_): _description_
             csv_file_path (str, optional): _description_. Defaults to "output.csv".
