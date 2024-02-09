@@ -143,38 +143,6 @@ def test_filter_runs(matcher_instance):
     assert result == expected
 
 
-# def test_parse_agg_results(matcher_instance):
-#     # Mocked data for the Elasticsearch DSL query response
-#     response_data = {
-#         "aggregations": {
-#             "time": {
-#                 "buckets": [
-#                     {"key": "uuid1", "time": {"value_as_string": "2022-01-01T00:00:00"}},
-#                     {"key": "uuid2", "time": {"value_as_string": "2022-01-01T01:00:00"}},
-#                 ]
-#             },
-#             "uuid": {
-#                 "buckets": [
-#                     {"key": "uuid1", "your_agg_field": {"value": 10}},
-#                     {"key": "uuid2", "your_agg_field": {"value": 20}},
-#                 ]
-#             },
-#         }
-#     }
-
-#     # Call the parse_agg_results method
-#     parsed_results = matcher_instance.parse_agg_results(response_data, "your_agg_field", "avg")
-
-#     # Define the expected result
-#     expected = [
-#         {"uuid": "uuid1", "timestamp": "2022-01-01T00:00:00", "your_agg_field_avg": 10},
-#         {"uuid": "uuid2", "timestamp": "2022-01-01T01:00:00", "your_agg_field_avg": 20},
-#     ]
-
-#     # Assert the result matches the expected value
-#     assert parsed_results == expected
-
-
 def test_getResults(matcher_instance):
     test_uuid = "uuid1"
     test_uuids = ["uuid1", "uuid2"]
