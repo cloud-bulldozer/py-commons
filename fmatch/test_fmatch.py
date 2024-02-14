@@ -11,7 +11,6 @@ from matcher import Matcher
 
 match = Matcher(index="perf_scale_ci")
 res=match.get_metadata_by_uuid("b4afc724-f175-44d1-81ff-a8255fea034f",'perf_scale_ci')
-print(res)
 
 meta = {}
 meta["masterNodesType"] = "m6a.xlarge"
@@ -28,15 +27,12 @@ meta["benchmark"] = "cluster-density-v2"
 # meta['fips'] = "false"
 
 uuids = match.get_uuid_by_metadata(meta)
-print(len(uuids))
 if len(uuids) == 0:
     print("No UUID present for given metadata")
     sys.exit()
 runs = match.match_kube_burner(uuids)
 
-# print(len(runs))
 ids = match.filter_runs(runs, runs)
-print(len(ids))
 podl_metrics = {
     "name": "podReadyLatency",
     "metricName": "podLatencyQuantilesMeasurement",
@@ -55,9 +51,7 @@ kapi_metrics = {
 kapi_cpu = match.get_agg_metric_query(ids, "ripsaw-kube-burner*", metrics=kapi_metrics)
 podl_df = match.convert_to_df(
     podl, columns=['uuid', 'timestamp', 'quantileName', 'P99'])
-print(podl_df)
 kapi_cpu_df = match.convert_to_df(kapi_cpu)
-print(kapi_cpu_df)
 merge_df = pd.merge(kapi_cpu_df, podl_df, on="uuid")
 match.save_results(merge_df, "merged.csv", [
                    "uuid", "timestamp_x", "cpu_avg", "P99"])
