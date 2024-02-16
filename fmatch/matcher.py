@@ -80,12 +80,10 @@ class Matcher:
             must=[
                 Q(
                     "match", **{field: str(value)}
-                )  # if isinstance(value, str) else Q('terms', **{field: value})
+                )   if isinstance(value, str) else Q('match', **{field: value})
                 for field, value in meta.items()
-                if field not in "ocpVersion benchmark"
-            ]
-            + ([Q("match", **{"benchmark.keyword": meta["benchmark"]})]
-                if "benchmark" in meta else []),
+                if field not in "ocpVersion"
+            ],
             filter=[
                 Q("wildcard", ocpVersion=f"{version}*"),
                 Q("match", jobStatus="success"),
@@ -155,10 +153,10 @@ class Matcher:
         metric_queries = []
         not_queries = [
             ~Q("match", **{not_item_key: not_item_value})
-            for not_item_key, not_item_value in metrics["not"].items()
+            for not_item_key, not_item_value in metrics.get("not",{}).items()
         ]
         metric_queries = [
-            Q("match", **{metric_key: f'"{metric_value}"'})
+            Q("match", **{metric_key: metric_value})
             for metric_key, metric_value in metrics.items()
             if metric_key not in ["name", "metric_of_interest", "not"]
         ]
@@ -194,7 +192,7 @@ class Matcher:
             for not_item_key, not_item_value in not_item.items()
         ]
         metric_queries = [
-            Q("match", **{metric_key: f'"{metric_value}"'})
+            Q("match", **{metric_key: metric_value})
             for metric_key, metric_value in metrics.items()
             if metric_key not in ["name", "metric_of_interest", "not", "agg"]
         ]

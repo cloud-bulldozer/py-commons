@@ -21,7 +21,7 @@ meta["workerNodesCount"] = 24
 meta["jobStatus"] = "success"
 meta["ocpVersion"] = "4.15"
 meta["networkType"] = "OVNKubernetes"
-meta["benchmark"] = "cluster-density-v2"
+meta["benchmark.keyword"] = "cluster-density-v2"
 # meta['encrypted'] = "true"
 # meta['ipsec'] = "false"
 # meta['fips'] = "false"
@@ -44,7 +44,7 @@ podl = match.getResults("", ids, "ripsaw-kube-burner*",metrics=podl_metrics)
 kapi_metrics = {
     "name": "apiserverCPU",
     "metricName": "containerCPU",
-    "labels.namespace": "openshift-kube-apiserver",
+    "labels.namespace.keyword": "openshift-kube-apiserver",
     "metric_of_interest": "value",
     "agg": {"value": "cpu", "agg_type": "avg"},
 }
