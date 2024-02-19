@@ -7,12 +7,12 @@ import sys
 import logging
 
 # pylint: disable=import-error
-from elasticsearch import Elasticsearch
+from elasticsearch7 import Elasticsearch
 
 
 # pylint: disable=import-error
 import pandas as pd
-from elasticsearch_dsl import Search, Q
+from elasticsearch_dsl import Search, Q, A
 
 
 class Matcher:
@@ -37,6 +37,39 @@ class Matcher:
         logging.getLogger("elasticsearch").setLevel(logging.WARN)
         self.es = Elasticsearch([self.es_url], timeout=30)
         self.data = None
+
+    def generic_search(self, queries: list, buckets: list, metric_name: str, agg_type: str, field: str):
+        """
+        Function for performing a generic search using the specified queries, buckets, metric name, aggregation type, and field.
+        Args:
+            queries (list): List of queries to be used in the search.
+            buckets (list): List of buckets to be used in the aggregation.
+            metric_name (str): Name of the metric to be aggregated.
+            agg_type (str): Type of aggregation to be performed.
+            field (str): Field on which the aggregation will be applied.
+        Returns:
+            dict: Dictionary containing the results of the search and aggregation.
+        """
+        s = Search(using=self.es, index=self.index)
+        q = None
+        for query in queries:
+            if not q:
+                q = Q("match", **(query))
+            else:
+                q = q & Q("match", **query)
+        s.query = q
+        x = None
+        for bucket in buckets:
+            if x is None:
+                a = A("terms", field=buckets[0])
+                x = s.aggs.bucket(buckets[0], a)
+            else:
+                a = A("terms", field=bucket)
+                x = x.bucket(bucket, a)
+        x.bucket(metric_name, A(agg_type, field=field))
+        s = s[:0]
+        return s.execute().to_dict()
+
 
     def get_metadata_by_uuid(self, uuid, index=None):
         """Returns back metadata when uuid is given
