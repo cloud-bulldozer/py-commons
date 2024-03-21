@@ -25,14 +25,16 @@ class Matcher:
         self.es_url = ES_URL
         self.search_size = 10000
         self.logger = logging.getLogger("Matcher")
-        self.logger.setLevel(level)
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(level)
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        # Check if handlers are already added to avoid duplication
+        if not self.logger.handlers:
+            self.logger.setLevel(level)
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(level)
+            formatter = logging.Formatter(
+                "%(asctime)s - %(name)s - %(levelname)s - file: %(filename)s - line: %(lineno)d - %(message)s" # pylint: disable = line-too-long
+            )
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
         # We can set the ES logging higher if we want additional debugging
         logging.getLogger("elasticsearch").setLevel(logging.WARN)
         self.es = Elasticsearch([self.es_url], timeout=30)
