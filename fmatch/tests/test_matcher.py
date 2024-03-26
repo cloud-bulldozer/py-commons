@@ -59,7 +59,10 @@ def test_query_index(matcher_instance):
 def test_get_uuid_by_metadata(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
         "hits": {
-            "hits": [{"_source": {"uuid": "uuid1"}}, {"_source": {"uuid": "uuid2"}}]
+            "hits": [{"_source": {"uuid": "uuid1",
+                                  "buildUrl":"buildUrl1"}}, 
+                    {"_source": {"uuid": "uuid2",
+                                  "buildUrl":"buildUrl1"}}]
         }
     }
     meta = {
@@ -67,7 +70,10 @@ def test_get_uuid_by_metadata(matcher_instance):
         "ocpVersion": "4.15",
     }
     result = matcher_instance.get_uuid_by_metadata(meta)
-    expected = ["uuid1", "uuid2"]
+    expected = [{"uuid": "uuid1",
+                "buildUrl":"buildUrl1"},
+                {"uuid": "uuid2",
+                "buildUrl":"buildUrl1"}]
     assert result == expected
 
 

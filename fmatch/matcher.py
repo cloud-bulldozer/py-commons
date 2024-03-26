@@ -92,8 +92,9 @@ class Matcher:
         s = Search(using=self.es, index=index).query(query).extra(size=self.search_size)
         result = self.query_index(index, s)
         hits = result.hits.hits
-        uuids = [hit.to_dict()["_source"]["uuid"] for hit in hits]
-        return uuids
+        uuids_docs = [{ "uuid":hit.to_dict()["_source"]["uuid"],
+                        "buildUrl":hit.to_dict()["_source"]["buildUrl"]} for hit in hits]
+        return uuids_docs
 
     def match_kube_burner(self, uuids):
         """match kube burner runs
