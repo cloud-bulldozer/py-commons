@@ -78,7 +78,7 @@ def test_get_uuid_by_metadata(matcher_instance):
 
 
 def test_match_kube_burner(matcher_instance):
-    result = matcher_instance.match_kube_burner(["uuid1"])
+    result = matcher_instance.match_kube_burner(["uuid1"],index="ospst-*")
     expected = [
         {"uuid": "uuid1", "field1": "value1"},
         {"uuid": "uuid2", "field1": "value2"},
