@@ -19,7 +19,10 @@ class Matcher:
     """Matcher"""
 
     def __init__(
-        self, index="perf_scale_ci", level=logging.INFO, ES_URL=os.getenv("ES_SERVER")
+        self, index="ospst-perf-scale-ci",
+        level=logging.INFO,
+        ES_URL=os.getenv("ES_SERVER"),
+        verify_certs=True
     ):
         self.index = index
         self.es_url = ES_URL
@@ -35,7 +38,7 @@ class Matcher:
         self.logger.addHandler(handler)
         # We can set the ES logging higher if we want additional debugging
         logging.getLogger("elasticsearch").setLevel(logging.WARN)
-        self.es = Elasticsearch([self.es_url], timeout=30)
+        self.es = Elasticsearch([self.es_url], timeout=30, verify_certs=verify_certs)
         self.data = None
 
     def get_metadata_by_uuid(self, uuid, index=None):
@@ -96,14 +99,13 @@ class Matcher:
                         "buildUrl":hit.to_dict()["_source"]["buildUrl"]} for hit in hits]
         return uuids_docs
 
-    def match_kube_burner(self, uuids):
+    def match_kube_burner(self, uuids, index):
         """match kube burner runs
         Args:
             uuids (list): list of uuids
         Returns:
             list : list of runs
         """
-        index = "ripsaw-kube-burner*"
         query = Q(
             "bool",
             filter=[
