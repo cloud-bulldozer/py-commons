@@ -32,7 +32,7 @@ class Matcher:
         handler = logging.StreamHandler(sys.stdout)
         handler.setLevel(level)
         formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+            "%(asctime)s [%(name)s:%(filename)s:%(lineno)d] %(levelname)s: %(message)s"
         )
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
