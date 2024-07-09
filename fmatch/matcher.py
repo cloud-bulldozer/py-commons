@@ -23,10 +23,10 @@ class Matcher:
 
     def __init__(
         self,
-        index="ospst-perf-scale-ci",
-        level=logging.INFO,
-        ES_URL=os.getenv("ES_SERVER"),
-        verify_certs=True,
+        index: str ="ospst-perf-scale-ci",
+        level: int =logging.INFO,
+        ES_URL: str =os.getenv("ES_SERVER"),
+        verify_certs: bool =True,
     ):
         self.index = index
         self.es_url = ES_URL
