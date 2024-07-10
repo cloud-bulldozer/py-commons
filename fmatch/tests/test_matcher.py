@@ -7,6 +7,7 @@ Unit Test file for fmatch.py
 # pylint: disable = import-error, duplicate-code
 import os
 from unittest.mock import patch
+import datetime
 
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Response
@@ -71,6 +72,29 @@ def test_get_uuid_by_metadata(matcher_instance):
     }
     result = matcher_instance.get_uuid_by_metadata(meta)
     expected = [{"uuid": "uuid1",
+                "buildUrl":"buildUrl1"},
+                {"uuid": "uuid2",
+                "buildUrl":"buildUrl1"}]
+    assert result == expected
+
+def test_get_uuid_by_metadata_lookback(matcher_instance):
+    matcher_instance.es.search = lambda *args, **kwargs: {
+        "hits": {
+            "hits": [{"_source": {"uuid": "uuid1",
+                                  "buildUrl":"buildUrl1",
+                                  "timestamp":"2024-07-10T13:46:24Z"}}, 
+                    {"_source": {"uuid": "uuid2",
+                                  "buildUrl":"buildUrl1",
+                                  "timestamp":"2024-07-08T13:46:24Z"}}]
+        }
+    }
+    meta = {
+        "field1": "value1",
+        "ocpVersion": "4.15",
+    }
+    date= datetime.datetime.strptime("2024-07-07T13:46:24Z","%Y-%m-%dT%H:%M:%SZ")
+    result = matcher_instance.get_uuid_by_metadata(meta=meta, lookback_date=date)
+    expected= [{"uuid": "uuid1",
                 "buildUrl":"buildUrl1"},
                 {"uuid": "uuid2",
                 "buildUrl":"buildUrl1"}]
