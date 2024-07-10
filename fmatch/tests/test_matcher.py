@@ -7,12 +7,12 @@ Unit Test file for fmatch.py
 # pylint: disable = import-error, duplicate-code
 import os
 from unittest.mock import patch
+import datetime
 
 from elasticsearch_dsl import Search
 from elasticsearch_dsl.response import Response
 import pytest
 import pandas as pd
-import datetime
 
 # pylint: disable = import-error
 from fmatch.matcher import Matcher
