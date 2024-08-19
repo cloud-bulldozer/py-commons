@@ -1,5 +1,4 @@
-""" metadata matcher
-"""
+"""metadata matcher"""
 
 # pylint: disable = invalid-name, invalid-unary-operand-type, no-member
 import os
@@ -23,10 +22,10 @@ class Matcher:
 
     def __init__(
         self,
-        index: str ="ospst-perf-scale-ci",
-        level: int =logging.INFO,
-        ES_URL: str =os.getenv("ES_SERVER"),
-        verify_certs: bool =True,
+        index: str = "ospst-perf-scale-ci",
+        level: int = logging.INFO,
+        ES_URL: str = os.getenv("ES_SERVER"),
+        verify_certs: bool = True,
     ):
         self.index = index
         self.es_url = ES_URL
@@ -68,7 +67,11 @@ class Matcher:
         return search.execute()
 
     def get_uuid_by_metadata(
-        self, meta: Dict[str, Any], index: str = None, lookback_date: datetime = None
+        self,
+        meta: Dict[str, Any],
+        index: str = None,
+        lookback_date: datetime = None,
+        lookback_size: int = 10000,
     ) -> List[Dict[str, str]]:
         """get_uuid_by_metadata"""
         if index is None:
@@ -98,7 +101,12 @@ class Matcher:
             must=must_clause,
             filter=filter_clause,
         )
-        s = Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+        s = (
+            Search(using=self.es, index=index)
+            .query(query)
+            .sort({"timestamp": {"order": "desc"}})
+            .extra(size=lookback_size)
+        )
         result = self.query_index(index, s)
         hits = result.hits.hits
         uuids_docs = [
