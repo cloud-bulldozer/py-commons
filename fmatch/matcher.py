@@ -73,7 +73,23 @@ class Matcher:
         lookback_date: datetime = None,
         lookback_size: int = 10000,
     ) -> List[Dict[str, str]]:
-        """get_uuid_by_metadata"""
+        """gets uuid by metadata
+
+        Args:
+            meta (Dict[str, Any]): metadata of the runs
+            index (str, optional): Index to search. Defaults to None.
+            lookback_date (datetime, optional): 
+            The cutoff date to get the uuids from. Defaults to None.
+            lookback_size (int, optional): 
+            Maximum number of runs to get, gets the latest. Defaults to 10000.
+
+            lookback_size and lookback_date get the data on the 
+            precedency of whichever cutoff comes first.
+            Similar to a car manufacturer's warranty limits.
+
+        Returns:
+            List[Dict[str, str]]: _description_
+        """
         if index is None:
             index = self.index
         version = meta["ocpVersion"][:4]
