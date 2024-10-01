@@ -19,7 +19,7 @@ setup(
     long_description_content_type="text/x-rst",
     long_description=LONG_DESCRIPTION,
     packages=find_packages(),
-    install_requires=['elasticsearch==7.13.0', 'elasticsearch-dsl', 'pyyaml','pandas'],
+    install_requires=['elasticsearch==7.13.0', 'elasticsearch-dsl', 'pyyaml','pandas', 'orjson', 'splunk-sdk'],
     keywords=['python', 'matching', 'red hat', 'perf-scale', 'matcher', 'orion'],
     classifiers=[
         "Development Status :: 1 - Planning",

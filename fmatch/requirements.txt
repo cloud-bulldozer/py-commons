@@ -22,6 +22,7 @@ mdurl==0.1.2
 more-itertools==10.2.0
 nh3==0.2.15
 numpy==1.26.3
+orjson==3.10.7
 packaging==23.2
 pandas==2.1.4
 pip-name==1.0.2
@@ -45,6 +46,7 @@ requests-toolbelt==1.0.0
 rfc3986==2.0.0
 rich==13.7.0
 six==1.16.0
+splunk-sdk==2.0.2
 tomlkit==0.12.3
 twine==4.0.2
 tzdata==2023.4
