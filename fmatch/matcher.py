@@ -92,6 +92,7 @@ class Matcher:
         """
         if index is None:
             index = self.index
+
         version = meta["ocpVersion"][:4]
 
         must_clause = [
@@ -102,12 +103,18 @@ class Matcher:
             )
             for field, value in meta.items()
             if field not in "ocpVersion"
+            if field not in "ocpMajorVersion"
         ]
 
-        filter_clause = [
-            Q("wildcard", ocpVersion=f"{version}*"),
-            Q("match", jobStatus="success"),
-        ]
+        if "ocpMajorVersion" in meta :
+            version = meta["ocpMajorVersion"]
+            filter_clause = [
+                Q("wildcard", ocpMajorVersion=f"{version}*"),
+            ]
+        else :
+            filter_clause = [
+                Q("wildcard", ocpVersion=f"{version}*"),
+            ]
         if isinstance(lookback_date, datetime):
             lookback_date = lookback_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         if lookback_date:
@@ -125,13 +132,16 @@ class Matcher:
         )
         result = self.query_index(index, s)
         hits = result.hits.hits
-        uuids_docs = [
-            {
-                "uuid": hit.to_dict()["_source"]["uuid"],
-                "buildUrl": hit.to_dict()["_source"]["buildUrl"],
-            }
-            for hit in hits
-        ]
+        uuids_docs = []
+        for hit in hits :
+            if "buildUrl" in hit["_source"] :
+                uuids_docs.append({
+                        "uuid": hit.to_dict()["_source"]["uuid"],
+                        "buildUrl": hit.to_dict()["_source"]["buildUrl"]})
+            else :
+                uuids_docs.append({
+                        "uuid": hit.to_dict()["_source"]["uuid"],
+                        "buildUrl": "http://bogus-url"})
         return uuids_docs
 
     def match_kube_burner(self, uuids: List[str], index: str) -> List[Dict[str, Any]]:
@@ -230,7 +240,8 @@ class Matcher:
         metric_queries = []
         not_queries = [
             ~Q("match", **{not_item_key: not_item_value})
-            for not_item_key, not_item_value in metrics.get("not", {}).items()
+            for not_item in metrics.get("not", [])
+            for not_item_key, not_item_value in not_item.items()
         ]
         metric_queries = [
             Q("match", **{metric_key: metric_value})
