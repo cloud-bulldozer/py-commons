@@ -240,8 +240,7 @@ class Matcher:
         metric_queries = []
         not_queries = [
             ~Q("match", **{not_item_key: not_item_value})
-            for not_item in metrics.get("not", [])
-            for not_item_key, not_item_value in not_item.items()
+            for not_item_key, not_item_value in metrics.get("not", {}).items()
         ]
         metric_queries = [
             Q("match", **{metric_key: metric_value})
