@@ -72,6 +72,7 @@ class Matcher:
         index: str = None,
         lookback_date: datetime = None,
         lookback_size: int = 10000,
+        timestamp_field: str = "timestamp",
     ) -> List[Dict[str, str]]:
         """gets uuid by metadata
 
@@ -118,7 +119,7 @@ class Matcher:
         if isinstance(lookback_date, datetime):
             lookback_date = lookback_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         if lookback_date:
-            filter_clause.append(Q("range", timestamp={"gt": lookback_date}))
+            filter_clause.append(Q("range", **{timestamp_field: {"gt": lookback_date}}))
         query = Q(
             "bool",
             must=must_clause,
@@ -127,7 +128,7 @@ class Matcher:
         s = (
             Search(using=self.es, index=index)
             .query(query)
-            .sort({"timestamp": {"order": "desc"}})
+            .sort({timestamp_field: {"order": "desc"}})
             .extra(size=lookback_size)
         )
         result = self.query_index(index, s)
@@ -228,8 +229,10 @@ class Matcher:
         return runs
 
     def get_agg_metric_query(
-        self, uuids: List[str], index: str, metrics: Dict[str, Any]
-    ):
+        self, uuids: List[str],
+        index: str,
+        metrics: Dict[str, Any],
+        timestamp_field: str="timestamp"):
         """burner_metric_query will query for specific metrics data.
 
         Args:
@@ -262,16 +265,19 @@ class Matcher:
         agg_type = metrics["agg"]["agg_type"]
         search.aggs.bucket(
             "time", "terms", field="uuid.keyword", size=self.search_size
-        ).metric("time", "avg", field="timestamp")
+        ).metric("time", "avg", field=timestamp_field)
         search.aggs.bucket(
             "uuid", "terms", field="uuid.keyword", size=self.search_size
         ).metric(agg_value, agg_type, field=metrics["metric_of_interest"])
         result = self.query_index(index, search)
-        data = self.parse_agg_results(result, agg_value, agg_type)
+        data = self.parse_agg_results(result, agg_value, agg_type, timestamp_field)
         return data
 
     def parse_agg_results(
-        self, data: Dict[Any, Any], agg_value: str, agg_type: str
+        self, data: Dict[Any, Any],
+        agg_value: str,
+        agg_type: str,
+        timestap_field: str="timestamp"
     ) -> List[Dict[Any, Any]]:
         """parse out CPU data from kube-burner query
         Args:
@@ -288,7 +294,7 @@ class Matcher:
         for stamp in stamps:
             dat = {}
             dat["uuid"] = stamp.key
-            dat["timestamp"] = stamp.time.value_as_string
+            dat[timestap_field] = stamp.time.value_as_string
             agg_values = next(
                 (item for item in agg_buckets if item.key == stamp.key), None
             )
@@ -300,7 +306,9 @@ class Matcher:
         return res
 
     def convert_to_df(
-        self, data: Dict[Any, Any], columns: List[str] = None
+        self, data: Dict[Any, Any],
+        columns: List[str] = None,
+        timestamp_field: str="timestamp"
     ) -> pd.DataFrame:
         """convert to a dataframe
         Args:
@@ -310,7 +318,7 @@ class Matcher:
             _type_: _description_
         """
         odf = pd.json_normalize(data)
-        odf = odf.sort_values(by=["timestamp"])
+        odf = odf.sort_values(by=[timestamp_field])
         if columns is not None:
             odf = pd.DataFrame(odf, columns=columns)
         return odf
