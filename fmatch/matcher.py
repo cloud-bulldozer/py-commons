@@ -20,6 +20,16 @@ from fmatch.logrus import SingletonLogger
 class Matcher:
     """Matcher"""
     # pylint: disable=too-many-instance-attributes
+    """
+    A class used to match or interact with an Elasticsearch index for performance scale testing.
+
+    Attributes:
+        index (str): Name of the Elasticsearch index to interact with.
+        level (int): Logging level (e.g., logging.INFO).
+        ES_URL (str): Elasticsearch endpoint, can be specified by the environment variable ES_SERVER
+        verify_certs (bool): Whether to verify SSL certificates when connecting to Elasticsearch.
+    """
+
     def __init__(
         self,
         index: str = "ospst-perf-scale-ci",
