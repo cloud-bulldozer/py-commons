@@ -90,6 +90,7 @@ class Matcher:
         Returns:
             List[Dict[str, str]]: _description_
         """
+        must_not_clause = []
         if index is None:
             index = self.index
 
@@ -106,12 +107,15 @@ class Matcher:
             if field not in "ocpMajorVersion"
         ]
 
-        if "ocpMajorVersion" in meta :
+        for field, value in meta.get("not", {}).items():
+            must_not_clause.append(Q("match", **{field: str(value)}))
+
+        if "ocpMajorVersion" in meta:
             version = meta["ocpMajorVersion"]
             filter_clause = [
                 Q("wildcard", ocpMajorVersion=f"{version}*"),
             ]
-        else :
+        else:
             filter_clause = [
                 Q("wildcard", ocpVersion=f"{version}*"),
             ]
@@ -122,6 +126,7 @@ class Matcher:
         query = Q(
             "bool",
             must=must_clause,
+            must_not=must_not_clause,
             filter=filter_clause,
         )
         s = (
@@ -133,12 +138,12 @@ class Matcher:
         result = self.query_index(index, s)
         hits = result.hits.hits
         uuids_docs = []
-        for hit in hits :
-            if "buildUrl" in hit["_source"] :
+        for hit in hits:
+            if "buildUrl" in hit["_source"]:
                 uuids_docs.append({
                         "uuid": hit.to_dict()["_source"]["uuid"],
                         "buildUrl": hit.to_dict()["_source"]["buildUrl"]})
-            else :
+            else:
                 uuids_docs.append({
                         "uuid": hit.to_dict()["_source"]["uuid"],
                         "buildUrl": "http://bogus-url"})
