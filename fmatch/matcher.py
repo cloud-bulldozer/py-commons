@@ -103,8 +103,7 @@ class Matcher:
                 else Q("match", **{field: value})
             )
             for field, value in meta.items()
-            if field not in "ocpVersion"
-            if field not in "ocpMajorVersion"
+            if field not in ["ocpVersion", "ocpMajorVersion", "not"]
         ]
 
         for field, value in meta.get("not", {}).items():
