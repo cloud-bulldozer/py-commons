@@ -18,7 +18,15 @@ from fmatch.logrus import SingletonLogger
 
 
 class Matcher:
-    """Matcher"""
+    """
+    A class used to match or interact with an Elasticsearch index for performance scale testing.
+
+    Attributes:
+        index (str): Name of the Elasticsearch index to interact with.
+        level (int): Logging level (e.g., logging.INFO).
+        ES_URL (str): Elasticsearch endpoint, can be specified by the environment variable ES_SERVER
+        verify_certs (bool): Whether to verify SSL certificates when connecting to Elasticsearch.
+    """
 
     def __init__(
         self,
@@ -28,48 +36,41 @@ class Matcher:
         verify_certs: bool = True,
     ):
         self.index = index
-        self.es_url = ES_URL
         self.search_size = 10000
         self.logger = SingletonLogger(debug=level, name="Matcher")
-        self.es = Elasticsearch([self.es_url], timeout=30, verify_certs=verify_certs)
-        self.data = None
+        self.es = Elasticsearch([ES_URL], timeout=30, verify_certs=verify_certs)
 
-    def get_metadata_by_uuid(self, uuid: str, index: str = None) -> dict:
+    def get_metadata_by_uuid(self, uuid: str) -> dict:
         """Returns back metadata when uuid is given
 
         Args:
             uuid (str): uuid of the run
-            index (str, optional): index to be searched in. Defaults to None.
 
         Returns:
             _type_: _description_
         """
-        if index is None:
-            index = self.index
         query = Q("match", uuid=uuid)
         result = {}
-        s = Search(using=self.es, index=index).query(query)
-        res = self.query_index(index, s)
+        s = Search(using=self.es, index=self.index).query(query)
+        res = self.query_index(s)
         hits = res.hits.hits
         if hits:
             result = dict(hits[0].to_dict()["_source"])
         return result
 
-    def query_index(self, index: str, search: Search) -> Response:
+    def query_index(self, search: Search) -> Response:
         """generic query function
 
         Args:
-            index (str): _description_
             search (Search) : Search object with query
         """
-        self.logger.info("Executing query against index=%s", index)
+        self.logger.info("Executing query against index: %s", self.index)
         self.logger.debug("Executing query \r\n%s", search.to_dict())
         return search.execute()
 
     def get_uuid_by_metadata(
         self,
         meta: Dict[str, Any],
-        index: str = None,
         lookback_date: datetime = None,
         lookback_size: int = 10000,
     ) -> List[Dict[str, str]]:
@@ -77,37 +78,30 @@ class Matcher:
 
         Args:
             meta (Dict[str, Any]): metadata of the runs
-            index (str, optional): Index to search. Defaults to None.
-            lookback_date (datetime, optional): 
+            lookback_date (datetime, optional):
             The cutoff date to get the uuids from. Defaults to None.
-            lookback_size (int, optional): 
+            lookback_size (int, optional):
             Maximum number of runs to get, gets the latest. Defaults to 10000.
 
-            lookback_size and lookback_date get the data on the 
+            lookback_size and lookback_date get the data on the
             precedency of whichever cutoff comes first.
             Similar to a car manufacturer's warranty limits.
 
         Returns:
             List[Dict[str, str]]: _description_
         """
+        must_clause = []
         must_not_clause = []
-        if index is None:
-            index = self.index
-
         version = meta["ocpVersion"][:4]
 
-        must_clause = [
-            (
-                Q("match", **{field: str(value)})
-                if isinstance(value, str)
-                else Q("match", **{field: value})
-            )
-            for field, value in meta.items()
-            if field not in ["ocpVersion", "ocpMajorVersion", "not"]
-        ]
-
-        for field, value in meta.get("not", {}).items():
-            must_not_clause.append(Q("match", **{field: str(value)}))
+        for field, value in meta.items():
+            if field in ["ocpVersion", "ocpMajorVersion"]:
+                continue
+            if field != "not":
+                must_clause.append(Q("match", **{field: str(value)}))
+            else:
+                for not_field, not_value in meta["not"].items():
+                    must_not_clause.append(Q("match", **{not_field: str(not_value)}))
 
         if "ocpMajorVersion" in meta:
             version = meta["ocpMajorVersion"]
@@ -129,26 +123,32 @@ class Matcher:
             filter=filter_clause,
         )
         s = (
-            Search(using=self.es, index=index)
+            Search(using=self.es, index=self.index)
             .query(query)
             .sort({"timestamp": {"order": "desc"}})
             .extra(size=lookback_size)
         )
-        result = self.query_index(index, s)
+        result = self.query_index(s)
         hits = result.hits.hits
         uuids_docs = []
         for hit in hits:
             if "buildUrl" in hit["_source"]:
-                uuids_docs.append({
+                uuids_docs.append(
+                    {
                         "uuid": hit.to_dict()["_source"]["uuid"],
-                        "buildUrl": hit.to_dict()["_source"]["buildUrl"]})
+                        "buildUrl": hit.to_dict()["_source"]["buildUrl"],
+                    }
+                )
             else:
-                uuids_docs.append({
+                uuids_docs.append(
+                    {
                         "uuid": hit.to_dict()["_source"]["uuid"],
-                        "buildUrl": "http://bogus-url"})
+                        "buildUrl": "http://bogus-url",
+                    }
+                )
         return uuids_docs
 
-    def match_kube_burner(self, uuids: List[str], index: str) -> List[Dict[str, Any]]:
+    def match_kube_burner(self, uuids: List[str]) -> List[Dict[str, Any]]:
         """match kube burner runs
         Args:
             uuids (list): list of uuids
@@ -164,9 +164,11 @@ class Matcher:
             ],
         )
         search = (
-            Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+            Search(using=self.es, index=self.index)
+            .query(query)
+            .extra(size=self.search_size)
         )
-        result = self.query_index(index, search)
+        result = self.query_index(search)
         runs = [item.to_dict()["_source"] for item in result.hits.hits]
         return runs
 
@@ -187,8 +189,8 @@ class Matcher:
         ids_df = ndf.loc[df["jobConfig.jobIterations"] == iterations]
         return ids_df["uuid"].to_list()
 
-    def getResults(
-        self, uuid: str, uuids: List[str], index_str: str, metrics: Dict[str, Any]
+    def get_results(
+        self, uuid: str, uuids: List[str], metrics: Dict[str, Any]
     ) -> Dict[Any, Any]:
         """
         Get results of elasticsearch data query based on uuid(s) and defined metrics
@@ -196,7 +198,6 @@ class Matcher:
         Args:
             uuid (str): _description_
             uuids (list): _description_
-            index_str (str): _description_
             metrics (dict): _description_
 
         Returns:
@@ -223,22 +224,19 @@ class Matcher:
             ],
         )
         search = (
-            Search(using=self.es, index=index_str)
+            Search(using=self.es, index=self.index)
             .query(query)
             .extra(size=self.search_size)
         )
-        result = self.query_index(index_str, search)
+        result = self.query_index(search)
         runs = [item.to_dict()["_source"] for item in result.hits.hits]
         return runs
 
-    def get_agg_metric_query(
-        self, uuids: List[str], index: str, metrics: Dict[str, Any]
-    ):
+    def get_agg_metric_query(self, uuids: List[str], metrics: Dict[str, Any]):
         """burner_metric_query will query for specific metrics data.
 
         Args:
             uuids (list): List of uuids
-            index (str): ES/OS Index to query from
             metrics (dict): metrics defined in es index metrics
         """
         metric_queries = []
@@ -260,7 +258,9 @@ class Matcher:
             ],
         )
         search = (
-            Search(using=self.es, index=index).query(query).extra(size=self.search_size)
+            Search(using=self.es, index=self.index)
+            .query(query)
+            .extra(size=self.search_size)
         )
         agg_value = metrics["agg"]["value"]
         agg_type = metrics["agg"]["agg_type"]
@@ -270,7 +270,7 @@ class Matcher:
         search.aggs.bucket(
             "uuid", "terms", field="uuid.keyword", size=self.search_size
         ).metric(agg_value, agg_type, field=metrics["metric_of_interest"])
-        result = self.query_index(index, search)
+        result = self.query_index(search)
         data = self.parse_agg_results(result, agg_value, agg_type)
         return data
 
