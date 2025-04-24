@@ -61,9 +61,8 @@ def test_get_metadata_by_uuid_found(matcher_instance):
 
 
 def test_query_index(matcher_instance):
-    index = "test_index"
-    search = Search(using=matcher_instance.es, index=index)
-    result = matcher_instance.query_index(index, search)
+    search = Search(using=matcher_instance.es)
+    result = matcher_instance.query_index(search)
     expected = {
         "hits": {
             "hits": [
@@ -92,10 +91,10 @@ def test_query_index_uuid(uuid_matcher_instance):
 def test_get_uuid_by_metadata(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
         "hits": {
-            "hits": [{"_source": {"uuid": "uuid1",
-                                  "buildUrl":"buildUrl1"}}, 
-                    {"_source": {"uuid": "uuid2",
-                                  "buildUrl":"buildUrl1"}}]
+            "hits": [
+                {"_source": {"uuid": "uuid1", "buildUrl": "buildUrl1"}},
+                {"_source": {"uuid": "uuid2", "buildUrl": "buildUrl1"}},
+            ]
         }
     }
     meta = {
@@ -103,62 +102,86 @@ def test_get_uuid_by_metadata(matcher_instance):
         "ocpVersion": "4.15",
     }
     result = matcher_instance.get_uuid_by_metadata(meta)
-    expected = [{"uuid": "uuid1",
-                "buildUrl":"buildUrl1"},
-                {"uuid": "uuid2",
-                "buildUrl":"buildUrl1"}]
+    expected = [
+        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+    ]
     assert result == expected
+
 
 def test_get_uuid_by_metadata_lookback(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
         "hits": {
-            "hits": [{"_source": {"uuid": "uuid1",
-                                  "buildUrl":"buildUrl1",
-                                  "timestamp":"2024-07-10T13:46:24Z"}}, 
-                    {"_source": {"uuid": "uuid2",
-                                  "buildUrl":"buildUrl1",
-                                  "timestamp":"2024-07-08T13:46:24Z"}}]
+            "hits": [
+                {
+                    "_source": {
+                        "uuid": "uuid1",
+                        "buildUrl": "buildUrl1",
+                        "timestamp": "2024-07-10T13:46:24Z",
+                    }
+                },
+                {
+                    "_source": {
+                        "uuid": "uuid2",
+                        "buildUrl": "buildUrl1",
+                        "timestamp": "2024-07-08T13:46:24Z",
+                    }
+                },
+            ]
         }
     }
     meta = {
         "field1": "value1",
         "ocpVersion": "4.15",
     }
-    date= datetime.datetime.strptime("2024-07-07T13:46:24Z","%Y-%m-%dT%H:%M:%SZ")
+    date = datetime.datetime.strptime("2024-07-07T13:46:24Z", "%Y-%m-%dT%H:%M:%SZ")
     result = matcher_instance.get_uuid_by_metadata(meta=meta, lookback_date=date)
-    expected= [{"uuid": "uuid1",
-                "buildUrl":"buildUrl1"},
-                {"uuid": "uuid2",
-                "buildUrl":"buildUrl1"}]
+    expected = [
+        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+    ]
     assert result == expected
+
 
 def test_get_uuid_by_metadata_lookback_size(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
         "hits": {
-            "hits": [{"_source": {"uuid": "uuid1",
-                                  "buildUrl":"buildUrl1",
-                                  "timestamp":"2024-07-10T13:46:24Z"}}, 
-                    {"_source": {"uuid": "uuid2",
-                                  "buildUrl":"buildUrl1",
-                                  "timestamp":"2024-07-08T13:46:24Z"}}]
+            "hits": [
+                {
+                    "_source": {
+                        "uuid": "uuid1",
+                        "buildUrl": "buildUrl1",
+                        "timestamp": "2024-07-10T13:46:24Z",
+                    }
+                },
+                {
+                    "_source": {
+                        "uuid": "uuid2",
+                        "buildUrl": "buildUrl1",
+                        "timestamp": "2024-07-08T13:46:24Z",
+                    }
+                },
+            ]
         }
     }
     meta = {
         "field1": "value1",
         "ocpVersion": "4.15",
     }
-    date= datetime.datetime.strptime("2024-07-07T13:46:24Z","%Y-%m-%dT%H:%M:%SZ")
-    result = matcher_instance.get_uuid_by_metadata(meta=meta, lookback_date=date, lookback_size=2)
+    date = datetime.datetime.strptime("2024-07-07T13:46:24Z", "%Y-%m-%dT%H:%M:%SZ")
+    result = matcher_instance.get_uuid_by_metadata(
+        meta=meta, lookback_date=date, lookback_size=2
+    )
     print(result)
-    expected= [{"uuid": "uuid1",
-                "buildUrl":"buildUrl1"},
-               {"uuid": "uuid2",
-                "buildUrl":"buildUrl1"}]
+    expected = [
+        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+    ]
     assert result == expected
 
 
 def test_match_kube_burner(matcher_instance):
-    result = matcher_instance.match_kube_burner(["uuid1"],index="ospst-*")
+    result = matcher_instance.match_kube_burner(["uuid1"])
     expected = [
         {"uuid": "uuid1", "field1": "value1"},
         {"uuid": "uuid2", "field1": "value2"},
@@ -229,7 +252,7 @@ def test_filter_runs(matcher_instance):
     assert result == expected
 
 
-def test_getResults(matcher_instance):
+def test_get_results(matcher_instance):
     test_uuid = "uuid1"
     test_uuids = ["uuid1", "uuid2"]
     test_metrics = {
@@ -239,8 +262,8 @@ def test_getResults(matcher_instance):
         "metric_of_interest": "P99",
         "not": {"jobConfig.name": "garbage-collection"},
     }
-    result = matcher_instance.getResults(
-        test_uuid, test_uuids, "test_index", test_metrics
+    result = matcher_instance.get_results(
+        test_uuid, test_uuids, test_metrics
     )
     expected = [
         {"uuid": "uuid1", "field1": "value1"},
@@ -305,7 +328,7 @@ def test_get_agg_metric_query(matcher_instance):
     )
 
     result = matcher_instance.get_agg_metric_query(
-        test_uuids, "test_index", test_metrics
+        test_uuids, test_metrics
     )
     assert result == expected
 
@@ -390,7 +413,7 @@ def test_get_agg_metric_query_no_agg_values(matcher_instance):
     )
 
     result = matcher_instance.get_agg_metric_query(
-        test_uuids, "test_index", test_metrics
+        test_uuids, test_metrics
     )
     assert result == expected
 
