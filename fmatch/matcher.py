@@ -19,7 +19,7 @@ from fmatch.logrus import SingletonLogger
 
 class Matcher:
     """Matcher"""
-
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         index: str = "ospst-perf-scale-ci",
