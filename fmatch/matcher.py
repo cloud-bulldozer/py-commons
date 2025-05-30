@@ -19,13 +19,15 @@ from fmatch.logrus import SingletonLogger
 
 class Matcher:
     """Matcher"""
-
+    # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         index: str = "ospst-perf-scale-ci",
         level: int = logging.INFO,
         ES_URL: str = os.getenv("ES_SERVER"),
         verify_certs: bool = True,
+        version_field: str = "ocpVersion",
+        uuid_field: str = "uuid"
     ):
         self.index = index
         self.es_url = ES_URL
@@ -33,6 +35,8 @@ class Matcher:
         self.logger = SingletonLogger(debug=level, name="Matcher")
         self.es = Elasticsearch([self.es_url], timeout=30, verify_certs=verify_certs)
         self.data = None
+        self.version_field = version_field
+        self.uuid_field = uuid_field
 
     def get_metadata_by_uuid(self, uuid: str, index: str = None) -> dict:
         """Returns back metadata when uuid is given
@@ -46,7 +50,7 @@ class Matcher:
         """
         if index is None:
             index = self.index
-        query = Q("match", uuid=uuid)
+        query = Q("match",  **{self.uuid_field: {"value": f"{uuid}"}})
         result = {}
         s = Search(using=self.es, index=index).query(query)
         res = self.query_index(index, s)
@@ -72,7 +76,7 @@ class Matcher:
         index: str = None,
         lookback_date: datetime = None,
         lookback_size: int = 10000,
-        timestamp_field: str = "timestamp",
+        timestamp_field: str = "timestamp"
     ) -> List[Dict[str, str]]:
         """gets uuid by metadata
 
@@ -95,7 +99,7 @@ class Matcher:
         if index is None:
             index = self.index
 
-        version = meta["ocpVersion"][:4]
+        version = str(meta[self.version_field])[:4]
 
         must_clause = [
             (
@@ -104,7 +108,7 @@ class Matcher:
                 else Q("match", **{field: value})
             )
             for field, value in meta.items()
-            if field not in ["ocpVersion", "ocpMajorVersion", "not"]
+            if field not in [self.version_field, "ocpMajorVersion", "not"]
         ]
 
         for field, value in meta.get("not", {}).items():
@@ -117,8 +121,9 @@ class Matcher:
             ]
         else:
             filter_clause = [
-                Q("wildcard", ocpVersion=f"{version}*"),
+                Q("wildcard", **{self.version_field: {"value": f"{version}*"}}),
             ]
+
         if isinstance(lookback_date, datetime):
             lookback_date = lookback_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         if lookback_date:
@@ -141,11 +146,11 @@ class Matcher:
         for hit in hits:
             if "buildUrl" in hit["_source"]:
                 uuids_docs.append({
-                        "uuid": hit.to_dict()["_source"]["uuid"],
+                        self.uuid_field: hit.to_dict()["_source"][self.uuid_field],
                         "buildUrl": hit.to_dict()["_source"]["buildUrl"]})
             else:
                 uuids_docs.append({
-                        "uuid": hit.to_dict()["_source"]["uuid"],
+                        self.uuid_field: hit.to_dict()["_source"][self.uuid_field],
                         "buildUrl": "http://bogus-url"})
         return uuids_docs
 
@@ -189,7 +194,10 @@ class Matcher:
         return ids_df["uuid"].to_list()
 
     def getResults(
-        self, uuid: str, uuids: List[str], index_str: str, metrics: Dict[str, Any]
+        self, uuid: str,
+        uuids: List[str],
+        index_str: str,
+        metrics: Dict[str, Any]
     ) -> Dict[Any, Any]:
         """
         Get results of elasticsearch data query based on uuid(s) and defined metrics
@@ -219,8 +227,8 @@ class Matcher:
         query = Q(
             "bool",
             must=[
-                Q("terms", **{"uuid.keyword": uuids}),
-                metric_query,
+                Q("terms", **{self.uuid_field+".keyword": uuids}),
+                metric_query
             ],
         )
         search = (
@@ -258,7 +266,7 @@ class Matcher:
         query = Q(
             "bool",
             must=[
-                Q("terms", **{"uuid.keyword": uuids}),
+                Q("terms", **{self.uuid_field +".keyword": uuids}),
                 metric_query,
             ],
         )
@@ -268,10 +276,10 @@ class Matcher:
         agg_value = metrics["agg"]["value"]
         agg_type = metrics["agg"]["agg_type"]
         search.aggs.bucket(
-            "time", "terms", field="uuid.keyword", size=self.search_size
+            "time", "terms", field=self.uuid_field+".keyword", size=self.search_size
         ).metric("time", "avg", field=timestamp_field)
         search.aggs.bucket(
-            "uuid", "terms", field="uuid.keyword", size=self.search_size
+            "uuid", "terms", field=self.uuid_field+".keyword", size=self.search_size
         ).metric(agg_value, agg_type, field=metrics["metric_of_interest"])
         result = self.query_index(index, search)
         data = self.parse_agg_results(result, agg_value, agg_type, timestamp_field)
@@ -297,7 +305,7 @@ class Matcher:
 
         for stamp in stamps:
             dat = {}
-            dat["uuid"] = stamp.key
+            dat[self.uuid_field] = stamp.key
             dat[timestap_field] = stamp.time.value_as_string
             agg_values = next(
                 (item for item in agg_buckets if item.key == stamp.key), None

@@ -35,6 +35,24 @@ def matcher_instance():
         return match
 
 
+@pytest.fixture
+def uuid_matcher_instance():
+    sample_output = {
+        "hits": {
+            "hits": [
+                {"_source": {"run_uuid": "uuid1", "field1": "value1"}},
+                {"_source": {"run_uuid": "uuid2", "field1": "value2"}},
+            ]
+        }
+    }
+    with patch("fmatch.matcher.Elasticsearch") as mock_es:
+        mock_es_instance = mock_es.return_value
+        mock_es_instance.search.return_value = sample_output
+        match = Matcher(index="krkn-telemetry",
+                        uuid_field="run_uuid",
+                        version_field="cluster_version")
+        return match
+
 def test_get_metadata_by_uuid_found(matcher_instance):
     uuid = "test_uuid"
     result = matcher_instance.get_metadata_by_uuid(uuid)
@@ -56,6 +74,20 @@ def test_query_index(matcher_instance):
     }
     assert result == expected
 
+
+def test_query_index_uuid(uuid_matcher_instance):
+    index = "test_index"
+    search = Search(using=uuid_matcher_instance.es, index=index)
+    result = uuid_matcher_instance.query_index(index, search)
+    expected = {
+        "hits": {
+            "hits": [
+                {"_source": {"run_uuid": "uuid1", "field1": "value1"}},
+                {"_source": {"run_uuid": "uuid2", "field1": "value2"}},
+            ]
+        }
+    }
+    assert result == expected
 
 def test_get_uuid_by_metadata(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
@@ -217,6 +249,22 @@ def test_getResults(matcher_instance):
     assert result == expected
 
 
+def test_getResultsUUID(uuid_matcher_instance):
+    test_uuid = "uuid1"
+    test_uuids = ["uuid1", "uuid2"]
+    test_metrics = {
+        "metricName": "nodeCPUSeconds-Infra",
+        "mode": "iowait"
+    }
+    result = uuid_matcher_instance.getResults(
+        test_uuid, test_uuids, "krkn-metrics", test_metrics
+    )
+    expected = [
+        {"run_uuid": "uuid1", "field1": "value1"},
+        {"run_uuid": "uuid2", "field1": "value2"},
+    ]
+    assert result == expected
+
 def test_get_agg_metric_query(matcher_instance):
     test_uuids = ["uuid1", "uuid2"]
     test_metrics = {
@@ -261,6 +309,51 @@ def test_get_agg_metric_query(matcher_instance):
     )
     assert result == expected
 
+
+
+def test_get_agg_metric_query_uuid(uuid_matcher_instance):
+    test_uuids = ["uuid1", "uuid2"]
+    test_metrics = {
+        "name": "apiserverCPU",
+        "metricName": "containerCPU",
+        "labels.namespace": "openshift-kube-apiserver",
+        "metric_of_interest": "value",
+        "agg": {"value": "cpu", "agg_type": "avg"},
+    }
+    data_dict = {
+        "aggregations": {
+            "time": {
+                "buckets": [
+                    {
+                        "key": "uuid1",
+                        "time": {"value_as_string": "2024-02-09T12:00:00"},
+                    },
+                    {
+                        "key": "uuid2",
+                        "time": {"value_as_string": "2024-02-09T13:00:00"},
+                    },
+                ]
+            },
+            "uuid": {
+                "buckets": [
+                    {"key": "uuid1", "cpu": {"value": 42}},
+                    {"key": "uuid2", "cpu": {"value": 56}},
+                ]
+            },
+        }
+    }
+    expected = [
+        {"run_uuid": "uuid1", "timestamp": "2024-02-09T12:00:00", "cpu_avg": 42},
+        {"run_uuid": "uuid2", "timestamp": "2024-02-09T13:00:00", "cpu_avg": 56},
+    ]
+    uuid_matcher_instance.query_index = lambda *args, **kwargs: Response(
+        response=data_dict, search=data_dict
+    )
+
+    result = uuid_matcher_instance.get_agg_metric_query(
+        test_uuids, "test_index", test_metrics
+    )
+    assert result == expected
 
 def test_get_agg_metric_query_no_agg_values(matcher_instance):
     test_uuids = ["uuid1", "uuid2"]
