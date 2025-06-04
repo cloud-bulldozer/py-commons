@@ -198,7 +198,7 @@ class Matcher:
         ids_df = ndf.loc[df["jobConfig.jobIterations"] == iterations]
         return ids_df["uuid"].to_list()
 
-    def getResults(
+    def get_results(
         self, uuid: str,
         uuids: List[str],
         index_str: str,
