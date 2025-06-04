@@ -248,7 +248,7 @@ class Matcher:
         self, uuids: List[str],
         index: str,
         metrics: Dict[str, Any],
-        timestamp_field: str="timestamp"):
+        timestamp_field: str = "timestamp"):
         """burner_metric_query will query for specific metrics data.
 
         Args:
@@ -269,7 +269,7 @@ class Matcher:
         query = Q(
             "bool",
             must=[
-                Q("terms", **{self.uuid_field +".keyword": uuids}),
+                Q("terms", **{self.uuid_field + ".keyword": uuids}),
                 metric_query,
             ],
         )
