@@ -34,7 +34,7 @@ class Matcher:
         self,
         index: str = "ospst-perf-scale-ci",
         level: int = logging.INFO,
-        ES_URL: str = os.getenv("ES_SERVER"),
+        es_url: str = os.getenv("ES_SERVER"),
         verify_certs: bool = True,
         version_field: str = "ocpVersion",
         uuid_field: str = "uuid"
