@@ -18,7 +18,6 @@ from fmatch.logrus import SingletonLogger
 
 
 class Matcher:
-    """Matcher"""
     # pylint: disable=too-many-instance-attributes
     """
     A class used to match or interact with an Elasticsearch index for performance scale testing.
@@ -26,8 +25,10 @@ class Matcher:
     Attributes:
         index (str): Name of the Elasticsearch index to interact with.
         level (int): Logging level (e.g., logging.INFO).
-        ES_URL (str): Elasticsearch endpoint, can be specified by the environment variable ES_SERVER
+        es_url (str): Elasticsearch endpoint, can be specified by the environment variable ES_SERVER
         verify_certs (bool): Whether to verify SSL certificates when connecting to Elasticsearch.
+        version_field (str): Name of the field containing the OpenShift version.
+        uuid_field (str): Name of the field containing the UUID.
     """
 
     def __init__(
@@ -42,7 +43,7 @@ class Matcher:
         self.index = index
         self.search_size = 10000
         self.logger = SingletonLogger(debug=level, name="Matcher")
-        self.es = Elasticsearch([self.es_url], timeout=30, verify_certs=verify_certs)
+        self.es = Elasticsearch([es_url], timeout=30, verify_certs=verify_certs)
         self.data = None
         self.version_field = version_field
         self.uuid_field = uuid_field
@@ -201,7 +202,6 @@ class Matcher:
     def get_results(
         self, uuid: str,
         uuids: List[str],
-        index_str: str,
         metrics: Dict[str, Any]
     ) -> Dict[Any, Any]:
         """
@@ -246,9 +246,9 @@ class Matcher:
 
     def get_agg_metric_query(
         self, uuids: List[str],
-        index: str,
         metrics: Dict[str, Any],
-        timestamp_field: str = "timestamp"):
+        timestamp_field: str = "timestamp"
+    ):
         """burner_metric_query will query for specific metrics data.
 
         Args:
@@ -286,7 +286,7 @@ class Matcher:
         search.aggs.bucket(
             "uuid", "terms", field=self.uuid_field+".keyword", size=self.search_size
         ).metric(agg_value, agg_type, field=metrics["metric_of_interest"])
-        result = self.query_index(index, search)
+        result = self.query_index(search)
         data = self.parse_agg_results(result, agg_value, agg_type, timestamp_field)
         return data
 
