@@ -77,7 +77,7 @@ def test_query_index(matcher_instance):
 def test_query_index_uuid(uuid_matcher_instance):
     index = "test_index"
     search = Search(using=uuid_matcher_instance.es, index=index)
-    result = uuid_matcher_instance.query_index(index, search)
+    result = uuid_matcher_instance.query_index(search)
     expected = {
         "hits": {
             "hits": [
@@ -272,15 +272,15 @@ def test_get_results(matcher_instance):
     assert result == expected
 
 
-def test_getResultsUUID(uuid_matcher_instance):
+def test_get_resultsUUID(uuid_matcher_instance):
     test_uuid = "uuid1"
     test_uuids = ["uuid1", "uuid2"]
     test_metrics = {
         "metricName": "nodeCPUSeconds-Infra",
         "mode": "iowait"
     }
-    result = uuid_matcher_instance.getResults(
-        test_uuid, test_uuids, "krkn-metrics", test_metrics
+    result = uuid_matcher_instance.get_results(
+        test_uuid, test_uuids, test_metrics
     )
     expected = [
         {"run_uuid": "uuid1", "field1": "value1"},
@@ -374,7 +374,7 @@ def test_get_agg_metric_query_uuid(uuid_matcher_instance):
     )
 
     result = uuid_matcher_instance.get_agg_metric_query(
-        test_uuids, "test_index", test_metrics
+        test_uuids, test_metrics
     )
     assert result == expected
 
