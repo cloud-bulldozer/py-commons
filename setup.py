@@ -5,7 +5,7 @@ setup file for fmatch package
 from setuptools import setup, find_packages
 
 
-VERSION = '0.1.3'
+VERSION = '0.1.4'
 DESCRIPTION = 'Common package for matching runs with provided metadata'
 # pylint: disable= line-too-long
 LONG_DESCRIPTION = "A package that allows to match metadata and get runs and create csv files with queried metrics"
