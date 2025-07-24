@@ -147,6 +147,7 @@ class Matcher:
                     {
                         self.uuid_field: hit.to_dict()["_source"][self.uuid_field],
                         "buildUrl": hit.to_dict()["_source"]["buildUrl"],
+                        "ocpVersion": hit.to_dict()["_source"]["ocpVersion"],
                     }
                 )
             else:
@@ -154,6 +155,7 @@ class Matcher:
                     {
                         self.uuid_field: hit.to_dict()["_source"][self.uuid_field],
                         "buildUrl": "http://bogus-url",
+                        "ocpVersion": hit.to_dict()["_source"]["ocpVersion"],
                     }
                 )
         return uuids_docs

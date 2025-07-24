@@ -92,8 +92,8 @@ def test_get_uuid_by_metadata(matcher_instance):
     matcher_instance.es.search = lambda *args, **kwargs: {
         "hits": {
             "hits": [
-                {"_source": {"uuid": "uuid1", "buildUrl": "buildUrl1"}},
-                {"_source": {"uuid": "uuid2", "buildUrl": "buildUrl1"}},
+                {"_source": {"uuid": "uuid1", "buildUrl": "buildUrl1", "ocpVersion": "4.15"}},
+                {"_source": {"uuid": "uuid2", "buildUrl": "buildUrl1", "ocpVersion": "4.15"}},
             ]
         }
     }
@@ -103,8 +103,8 @@ def test_get_uuid_by_metadata(matcher_instance):
     }
     result = matcher_instance.get_uuid_by_metadata(meta)
     expected = [
-        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
-        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid1", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
     ]
     assert result == expected
 
@@ -117,6 +117,7 @@ def test_get_uuid_by_metadata_lookback(matcher_instance):
                     "_source": {
                         "uuid": "uuid1",
                         "buildUrl": "buildUrl1",
+                        "ocpVersion": "4.15",
                         "timestamp": "2024-07-10T13:46:24Z",
                     }
                 },
@@ -124,6 +125,7 @@ def test_get_uuid_by_metadata_lookback(matcher_instance):
                     "_source": {
                         "uuid": "uuid2",
                         "buildUrl": "buildUrl1",
+                        "ocpVersion": "4.15",
                         "timestamp": "2024-07-08T13:46:24Z",
                     }
                 },
@@ -137,8 +139,8 @@ def test_get_uuid_by_metadata_lookback(matcher_instance):
     date = datetime.datetime.strptime("2024-07-07T13:46:24Z", "%Y-%m-%dT%H:%M:%SZ")
     result = matcher_instance.get_uuid_by_metadata(meta=meta, lookback_date=date)
     expected = [
-        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
-        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid1", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
     ]
     assert result == expected
 
@@ -151,6 +153,7 @@ def test_get_uuid_by_metadata_lookback_size(matcher_instance):
                     "_source": {
                         "uuid": "uuid1",
                         "buildUrl": "buildUrl1",
+                        "ocpVersion": "4.15",
                         "timestamp": "2024-07-10T13:46:24Z",
                     }
                 },
@@ -158,6 +161,7 @@ def test_get_uuid_by_metadata_lookback_size(matcher_instance):
                     "_source": {
                         "uuid": "uuid2",
                         "buildUrl": "buildUrl1",
+                        "ocpVersion": "4.15",
                         "timestamp": "2024-07-08T13:46:24Z",
                     }
                 },
@@ -174,8 +178,8 @@ def test_get_uuid_by_metadata_lookback_size(matcher_instance):
     )
     print(result)
     expected = [
-        {"uuid": "uuid1", "buildUrl": "buildUrl1"},
-        {"uuid": "uuid2", "buildUrl": "buildUrl1"},
+        {"uuid": "uuid1", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
+        {"uuid": "uuid2", "buildUrl": "buildUrl1", "ocpVersion": "4.15"},
     ]
     assert result == expected
 
