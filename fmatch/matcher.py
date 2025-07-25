@@ -57,7 +57,7 @@ class Matcher:
         Returns:
             _type_: _description_
         """
-        query = Q("match",  **{self.uuid_field: {"value": f"{uuid}"}})
+        query = Q("match",  **{self.uuid_field: f"{uuid}"})
         result = {}
         s = Search(using=self.es, index=self.index).query(query)
         res = self.query_index(s)
