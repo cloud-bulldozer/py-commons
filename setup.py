@@ -1,31 +1,52 @@
 """
-setup file for fmatch package
+setup file for py-commons package
 """
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_namespace_packages
 
 
-VERSION = '0.1.6'
-DESCRIPTION = 'Common package for matching runs with provided metadata'
-# pylint: disable= line-too-long
-LONG_DESCRIPTION = "A package that allows to match metadata and get runs and create csv files with queried metrics"
+VERSION = '0.2.0'
+DESCRIPTION = 'Common Python libraries for Red Hat tools and automation'
+LONG_DESCRIPTION = """
+py-commons is a collection of shared Python libraries for Red Hat tools and automation.
+
+Current libraries:
+- commons.jira: Unified JIRA client for Atlassian Cloud and on-premise instances with retry logic and common query patterns
+"""
 
 # Setting up
 setup(
-    name="fmatch",
+    name="py-commons",
     version=VERSION,
-    author="sboyapal",
-    author_email="sboyapal@redhat.com",
+    author="Red Hat Performance and Scale",
+    author_email="jtaleric@redhat.com",
     description=DESCRIPTION,
-    long_description_content_type="text/x-rst",
+    long_description_content_type="text/plain",
     long_description=LONG_DESCRIPTION,
-    packages=find_packages(),
-    install_requires=["elasticsearch==7.13.0", "elasticsearch-dsl", "pyyaml", "pandas"],
-    keywords=["python", "matching", "red hat", "perf-scale", "matcher", "orion"],
+    packages=find_namespace_packages(where="src"),
+    package_dir={"": "src"},
+    python_requires=">=3.8",
+    install_requires=[
+        "jira>=3.0.0",
+    ],
+    extras_require={
+        "dev": [
+            "pytest>=7.4.4",
+            "pytest-cov>=4.1.0",
+            "pytest-random-order>=1.1.0",
+            "pylint>=3.0.3",
+        ],
+    },
+    keywords=["python", "jira", "red hat", "automation", "atlassian"],
     classifiers=[
-        "Development Status :: 1 - Planning",
+        "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: Unix",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
