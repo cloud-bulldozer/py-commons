@@ -20,8 +20,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r fmatch/requirements.txt 
+        pip install -e ".[dev]"
 
     - name: Run pytest
       run: |
-        python -m pytest fmatch/tests --cov --random-order
+        python -m pytest src/commons/jira/tests --cov --random-order

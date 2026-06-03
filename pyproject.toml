@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py-commons"
+version = "0.2.0"
+description = "Common Python libraries for Red Hat tools and automation"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Red Hat Performance and Scale", email = "jtaleric@redhat.com"}
+]
+keywords = ["python", "jira", "red hat", "automation", "atlassian"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: Unix",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "jira>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "pytest-random-order>=1.1.0",
+    "pylint>=3.0.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["commons*"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/commons"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--strict-markers"
+
+[tool.pylint.main]
+ignore-patterns = ["test_.*"]
