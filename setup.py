@@ -28,6 +28,9 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "jira>=3.0.0",
+        "openai>=1.0.0",
+        "langchain-core>=0.1.0,<0.3.0",
+        "httpx>=0.27.0",
     ],
     extras_require={
         "dev": [
