@@ -5,7 +5,7 @@ setup file for py-commons package
 from setuptools import setup, find_namespace_packages
 
 
-VERSION = '0.3.0'
+VERSION = '0.4.0'
 DESCRIPTION = 'Common Python libraries for Red Hat tools and automation'
 LONG_DESCRIPTION = """
 py-commons is a collection of shared Python libraries for Red Hat tools and automation.
