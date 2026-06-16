@@ -25,11 +25,11 @@ setup(
     long_description=LONG_DESCRIPTION,
     packages=find_namespace_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=[
         "jira>=3.0.0",
         "openai>=1.0.0",
-        "langchain-core>=0.1.0,<0.3.0",
+        "langchain-core>=1.3.0",
         "httpx>=0.27.0",
     ],
     extras_require={
@@ -45,8 +45,6 @@ setup(
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
