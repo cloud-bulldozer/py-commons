@@ -6,12 +6,10 @@ Query OpenShift release-controller for payload phase (`Accepted` / `Rejected` / 
 from commons.release import ReleaseControllerClient
 
 client = ReleaseControllerClient()
-
-# async (orion-mcp)
-phase = await client.get_payload_phase("4.22.0-0.nightly-2026-01-05-203335", "4.22")
-
-# sync (FirstPass)
-phase = client.get_payload_phase_sync("4.22.0-0.nightly-2026-01-05-203335", "4.22")
+phase = client.get_payload_phase(
+    "4.22.0-0.nightly-2026-01-05-203335",
+    "4.22",
+)
 ```
 
 Returns `None` on HTTP/parse errors (fail-open).

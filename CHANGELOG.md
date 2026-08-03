@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-08-03
 
 ### Added
-- Added `commons.release` - `ReleaseControllerClient` for payload phase queries (async + sync)
+- Added `commons.release` - `ReleaseControllerClient.get_payload_phase` for payload phase queries
 
 ## [0.3.0] - 2026-06-02
 

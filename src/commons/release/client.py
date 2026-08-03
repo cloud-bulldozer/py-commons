@@ -32,28 +32,19 @@ class ReleaseControllerClient:
         phase = payload.get("phase")
         return phase if isinstance(phase, str) else None
 
-    async def get_payload_phase(
+    def get_payload_phase(
         self, nightly_version: str, major_version: str
     ) -> Optional[str]:
         """Return phase string, or None on error (fail-open)."""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.get(self._url(nightly_version, major_version))
-                resp.raise_for_status()
-                return self._parse_phase(resp.json())
-        except (httpx.HTTPError, ValueError, TypeError):
-            logger.debug("release-controller query failed for %s", nightly_version, exc_info=True)
-            return None
-
-    def get_payload_phase_sync(
-        self, nightly_version: str, major_version: str
-    ) -> Optional[str]:
-        """Sync variant for non-async tools (e.g. FirstPass)."""
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 resp = client.get(self._url(nightly_version, major_version))
                 resp.raise_for_status()
                 return self._parse_phase(resp.json())
         except (httpx.HTTPError, ValueError, TypeError):
-            logger.debug("release-controller query failed for %s", nightly_version, exc_info=True)
+            logger.debug(
+                "release-controller query failed for %s",
+                nightly_version,
+                exc_info=True,
+            )
             return None

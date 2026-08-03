@@ -63,7 +63,7 @@ client.add_label(issues[0], "needs-review")
 ```python
 from commons.release import ReleaseControllerClient
 
-phase = await ReleaseControllerClient().get_payload_phase(
+phase = ReleaseControllerClient().get_payload_phase(
     "4.22.0-0.nightly-2026-01-05-203335",
     "4.22",
 )

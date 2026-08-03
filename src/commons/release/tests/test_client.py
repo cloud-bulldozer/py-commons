@@ -1,7 +1,8 @@
 """Tests for commons.release client."""
 
+import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 
@@ -24,47 +25,45 @@ class TestReleaseControllerClient(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(client._parse_phase(["Rejected"]))
         self.assertIsNone(client._parse_phase({"phase": 1}))
 
-    async def test_async_success(self):
+    def _mock_httpx_client(self, *, json_value=None, side_effect=None):
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"phase": "Accepted"}
-        mock_client = AsyncMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = None
+        if json_value is not None:
+            mock_resp.json.return_value = json_value
+        mock_client = MagicMock()
+        if side_effect is not None:
+            mock_client.get.side_effect = side_effect
+        else:
+            mock_client.get.return_value = mock_resp
+        mock_client.__enter__.return_value = mock_client
+        mock_client.__exit__.return_value = None
+        return mock_client
 
-        with patch("commons.release.client.httpx.AsyncClient", return_value=mock_client):
-            phase = await ReleaseControllerClient().get_payload_phase(
+    def test_success(self):
+        mock_client = self._mock_httpx_client(json_value={"phase": "Pending"})
+        with patch("commons.release.client.httpx.Client", return_value=mock_client):
+            phase = ReleaseControllerClient().get_payload_phase(
                 "4.22.0-0.nightly-2026-01-05-203335", "4.22"
             )
-        self.assertEqual(phase, "Accepted")
+        self.assertEqual(phase, "Pending")
 
-    async def test_async_error_returns_none(self):
-        mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.ConnectError("boom")
-        mock_client.__aenter__.return_value = mock_client
-        mock_client.__aexit__.return_value = None
-
-        with patch("commons.release.client.httpx.AsyncClient", return_value=mock_client):
-            phase = await ReleaseControllerClient().get_payload_phase(
+    def test_error_returns_none(self):
+        mock_client = self._mock_httpx_client(side_effect=httpx.ConnectError("boom"))
+        with patch("commons.release.client.httpx.Client", return_value=mock_client):
+            phase = ReleaseControllerClient().get_payload_phase(
                 "4.22.0-0.nightly-2026-01-05-203335", "4.22"
             )
         self.assertIsNone(phase)
 
-    def test_sync_success(self):
-        mock_resp = MagicMock()
-        mock_resp.raise_for_status = MagicMock()
-        mock_resp.json.return_value = {"phase": "Pending"}
-        mock_client = MagicMock()
-        mock_client.get.return_value = mock_resp
-        mock_client.__enter__.return_value = mock_client
-        mock_client.__exit__.return_value = None
-
+    async def test_async_caller_via_to_thread(self):
+        mock_client = self._mock_httpx_client(json_value={"phase": "Accepted"})
         with patch("commons.release.client.httpx.Client", return_value=mock_client):
-            phase = ReleaseControllerClient().get_payload_phase_sync(
-                "4.22.0-0.nightly-2026-01-05-203335", "4.22"
+            phase = await asyncio.to_thread(
+                ReleaseControllerClient().get_payload_phase,
+                "4.22.0-0.nightly-2026-01-05-203335",
+                "4.22",
             )
-        self.assertEqual(phase, "Pending")
+        self.assertEqual(phase, "Accepted")
 
 
 if __name__ == "__main__":
