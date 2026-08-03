@@ -20,20 +20,20 @@ See [jira documentation](src/commons/jira/README.md) for detailed usage.
 
 ### commons.release
 
-Query OpenShift release-controller for payload phase (`Accepted` / `Rejected` / `Pending`). Async + sync. See [release docs](src/commons/release/README.md).
+Query OpenShift release-controller for payload phase (`Accepted` / `Rejected` / `Pending`). See [release documentation](src/commons/release/README.md).
 
 ## Installation
 
 Install from PyPI:
 
 ```bash
-pip install rh-py-commons
+pip install py-commons
 ```
 
 Or install from source:
 
 ```bash
-git clone https://github.com/cloud-bulldozer/py-commons.git
+git clone https://github.com/redhat-performance/py-commons.git
 cd py-commons
 pip install -e .
 ```
