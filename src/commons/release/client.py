@@ -11,7 +11,7 @@ RELEASE_CONTROLLER_API = "https://amd64.ocp.releases.ci.openshift.org/api/v1"
 RELEASE_CONTROLLER_TIMEOUT = 10.0
 
 
-class ReleaseControllerClient:
+class ReleaseControllerClient:  # pylint: disable=too-few-public-methods
     """Query payload acceptance phase from the release-controller API."""
 
     def __init__(

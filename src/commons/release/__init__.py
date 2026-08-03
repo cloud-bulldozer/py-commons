@@ -5,4 +5,4 @@ from commons.release.client import (
     ReleaseControllerClient,
 )
 
-__all__ = ["ReleaseControllerClient", "RELEASE_CONTROLLER_API"]
+__all__ = ["RELEASE_CONTROLLER_API", "ReleaseControllerClient"]
