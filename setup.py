@@ -5,13 +5,14 @@ setup file for py-commons package
 from setuptools import setup, find_namespace_packages
 
 
-VERSION = '0.5.0'
+VERSION = '0.6.0'
 DESCRIPTION = 'Common Python libraries for Red Hat tools and automation'
 LONG_DESCRIPTION = """
 py-commons is a collection of shared Python libraries for Red Hat tools and automation.
 
 Current libraries:
 - commons.jira: Unified JIRA client for Atlassian Cloud and on-premise instances with retry logic and common query patterns
+- commons.release: OpenShift release-controller client for payload acceptance phase queries
 """
 
 # Setting up
@@ -40,7 +41,7 @@ setup(
             "pylint>=3.0.3",
         ],
     },
-    keywords=["python", "jira", "red hat", "automation", "atlassian"],
+    keywords=["python", "jira", "release-controller", "red hat", "automation", "atlassian"],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",

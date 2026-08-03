@@ -18,18 +18,22 @@ A unified JIRA client for Red Hat projects with support for both Atlassian Cloud
 
 See [jira documentation](src/commons/jira/README.md) for detailed usage.
 
+### commons.release
+
+Query OpenShift release-controller for payload phase (`Accepted` / `Rejected` / `Pending`). Async + sync. See [release docs](src/commons/release/README.md).
+
 ## Installation
 
 Install from PyPI:
 
 ```bash
-pip install py-commons
+pip install rh-py-commons
 ```
 
 Or install from source:
 
 ```bash
-git clone https://github.com/redhat-performance/py-commons.git
+git clone https://github.com/cloud-bulldozer/py-commons.git
 cd py-commons
 pip install -e .
 ```
@@ -54,6 +58,15 @@ bugs = client.get_issues_by_status("MYPROJECT", "Open")
 
 # Add label to issue
 client.add_label(issues[0], "needs-review")
+```
+
+```python
+from commons.release import ReleaseControllerClient
+
+phase = await ReleaseControllerClient().get_payload_phase(
+    "4.22.0-0.nightly-2026-01-05-203335",
+    "4.22",
+)
 ```
 
 ## License
