@@ -6,6 +6,6 @@ instance types, platform details, and cluster configuration.
 Includes Prometheus/Thanos endpoint discovery.
 """
 
-from commons.ocp_metadata.metadata import get_cluster_metadata, get_prometheus
+from .metadata import get_cluster_metadata, get_prometheus
 
 __all__ = ["get_cluster_metadata", "get_prometheus"]

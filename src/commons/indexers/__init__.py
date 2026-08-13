@@ -6,7 +6,7 @@ local JSON file backends with factory pattern, SHA-256 document
 deduplication, and bulk indexing.
 """
 
-from commons.indexers.indexer import (
+from .indexer import (
     IndexerConfig,
     Indexer,
     OpenSearchIndexer,

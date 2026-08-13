@@ -1,9 +1,29 @@
+import functools
 import logging
 import os
 
 logger = logging.getLogger("commons.ocp_metadata")
 
+_NON_OCP_DEFAULTS = {
+    "ocpVersion": "",
+    "clusterVersion": "",
+    "ocpMajorVersion": "",
+    "stream": "",
+    "platform": "",
+    "clusterName": "",
+    "clusterType": "self-managed",
+    "region": "",
+    "sdnType": "",
+    "fips": False,
+    "publish": "",
+    "workerArch": "",
+    "controlPlaneArch": "",
+    "ipsec": False,
+    "ipsecMode": "Disabled",
+}
 
+
+@functools.lru_cache(maxsize=1)
 def _get_client():
     from kubernetes import client, config as k8s_config
 
@@ -18,8 +38,7 @@ def _get_client():
 
 
 def _get_custom_resource(group, version, plural, name):
-    client = _get_client()
-    api = client.CustomObjectsApi()
+    api = _get_client().CustomObjectsApi()
     try:
         return api.get_cluster_custom_object(group, version, plural, name)
     except Exception as e:
@@ -28,8 +47,7 @@ def _get_custom_resource(group, version, plural, name):
 
 
 def _get_namespaced_custom_resource(group, version, namespace, plural, name):
-    client = _get_client()
-    api = client.CustomObjectsApi()
+    api = _get_client().CustomObjectsApi()
     try:
         return api.get_namespaced_custom_object(group, version, namespace, plural, name)
     except Exception as e:
@@ -38,8 +56,7 @@ def _get_namespaced_custom_resource(group, version, namespace, plural, name):
 
 
 def _list_nodes(label_selector=""):
-    client = _get_client()
-    v1 = client.CoreV1Api()
+    v1 = _get_client().CoreV1Api()
     try:
         return v1.list_node(label_selector=label_selector).items
     except Exception as e:
@@ -48,8 +65,7 @@ def _list_nodes(label_selector=""):
 
 
 def _get_configmap(namespace, name):
-    client = _get_client()
-    v1 = client.CoreV1Api()
+    v1 = _get_client().CoreV1Api()
     try:
         return v1.read_namespaced_config_map(name, namespace)
     except Exception as e:
@@ -63,9 +79,8 @@ def _detect_distribution():
         version = cm.data.get("version", "") if cm.data else ""
         return "microshift", version
 
-    client = _get_client()
     try:
-        api_groups = [g.name for g in client.ApisApi().get_api_versions().groups]
+        api_groups = [g.name for g in _get_client().ApisApi().get_api_versions().groups]
     except Exception:
         api_groups = []
 
@@ -85,22 +100,17 @@ def _detect_cluster_type(infra):
     topology = status.get("controlPlaneTopology", "")
     is_hcp = topology == "External"
 
-    if platform == "AWS":
-        tags = status.get("platformStatus", {}).get("aws", {}).get("resourceTags", [])
-        for tag in tags:
-            if isinstance(tag, dict) and tag.get("key") == "red-hat-clustertype":
-                val = tag.get("value", "")
-                if val == "rosa":
-                    return "rosa-hcp" if is_hcp else "rosa"
-                return val
-    elif platform == "Azure":
-        tags = status.get("platformStatus", {}).get("azure", {}).get("resourceTags", [])
-        for tag in tags:
-            if isinstance(tag, dict) and tag.get("key") == "red-hat-clustertype":
-                val = tag.get("value", "")
-                if val == "aro":
-                    return "aro-hcp" if is_hcp else "aro"
-                return val
+    platform_key = {"AWS": "aws", "Azure": "azure"}.get(platform)
+    if not platform_key:
+        return "self-managed"
+
+    tags = status.get("platformStatus", {}).get(platform_key, {}).get("resourceTags", [])
+    for tag in tags:
+        if isinstance(tag, dict) and tag.get("key") == "red-hat-clustertype":
+            val = tag.get("value", "")
+            if val in ("rosa", "aro"):
+                return f"{val}-hcp" if is_hcp else val
+            return val
 
     return "self-managed"
 
@@ -109,40 +119,45 @@ def _get_region(infra):
     status = infra.get("status", {})
     platform = status.get("platform", "")
     ps = status.get("platformStatus", {})
-    if platform == "AWS":
-        return ps.get("aws", {}).get("region", "")
-    elif platform == "Azure":
-        return ps.get("azure", {}).get("region", "")
+    platform_key = {"AWS": "aws", "Azure": "azure"}.get(platform)
+    if platform_key:
+        return ps.get(platform_key, {}).get("region", "")
     return ""
 
 
-def _get_install_config_field(field):
+def _get_install_config():
     cm = _get_configmap("kube-system", "cluster-config-v1")
     if not cm or not cm.data or "install-config" not in cm.data:
         return None
     try:
         import yaml
-        config = yaml.safe_load(cm.data["install-config"])
-        if field == "fips":
-            return bool(config.get("fips", False))
-        if field == "publish":
-            return config.get("publish", "")
-        if field == "workerArch":
-            for pool in config.get("compute", []):
-                if pool.get("name") == "worker":
-                    return pool.get("architecture", "")
-            return ""
-        if field == "controlPlaneArch":
-            return config.get("controlPlane", {}).get("architecture", "")
+        return yaml.safe_load(cm.data["install-config"])
     except Exception as e:
-        logger.debug("Failed to parse install-config for %s: %s", field, e)
-    return None
+        logger.debug("Failed to parse install-config: %s", e)
+        return None
+
+
+def _extract_install_fields(config):
+    if not config:
+        return {"fips": False, "publish": "", "workerArch": "", "controlPlaneArch": ""}
+
+    worker_arch = ""
+    for pool in config.get("compute", []):
+        if pool.get("name") == "worker":
+            worker_arch = pool.get("architecture", "")
+            break
+
+    return {
+        "fips": bool(config.get("fips", False)),
+        "publish": config.get("publish", ""),
+        "workerArch": worker_arch,
+        "controlPlaneArch": config.get("controlPlane", {}).get("architecture", ""),
+    }
 
 
 def _get_k8s_version():
-    client = _get_client()
     try:
-        version = client.VersionApi().get_code()
+        version = _get_client().VersionApi().get_code()
         return version.git_version
     except Exception as e:
         logger.debug("Failed to get k8s version: %s", e)
@@ -155,8 +170,7 @@ def _get_ipsec():
     )
     if not network:
         return False, "Disabled"
-    spec = network.get("spec", {})
-    ovn = spec.get("defaultNetwork", {}).get("ovnKubernetesConfig", {})
+    ovn = network.get("spec", {}).get("defaultNetwork", {}).get("ovnKubernetesConfig", {})
     ipsec_config = ovn.get("ipsecConfig")
     if ipsec_config is None:
         return False, "Disabled"
@@ -180,42 +194,48 @@ def _get_nodes_info(infra):
         "masterNodesType": "",
         "workerNodesType": "",
         "infraNodesType": "",
+        "totalWorkerCPU": 0,
+        "totalWorkerMemoryKi": 0,
     }
 
     for node in all_nodes:
         labels = node.metadata.labels or {}
         instance_type = labels.get("node.kubernetes.io/instance-type", "")
         taints = node.spec.taints or []
+        capacity = node.status.capacity or {}
 
         is_master = "node-role.kubernetes.io/master" in labels
         is_control_plane = "node-role.kubernetes.io/control-plane" in labels
         is_infra = "node-role.kubernetes.io/infra" in labels
         is_worker = "node-role.kubernetes.io/worker" in labels
 
-        if is_master:
+        def _count_as_worker():
+            metadata["workerNodesCount"] += 1
+            if not metadata["workerNodesType"]:
+                metadata["workerNodesType"] = instance_type
+            cpu = capacity.get("cpu", "0")
+            mem = capacity.get("memory", "0Ki").replace("Ki", "")
+            metadata["totalWorkerCPU"] += int(cpu)
+            try:
+                metadata["totalWorkerMemoryKi"] += int(mem)
+            except ValueError:
+                pass
+
+        if is_master or is_control_plane:
             metadata["masterNodesCount"] += 1
             if not metadata["masterNodesType"]:
                 metadata["masterNodesType"] = instance_type
-            if is_worker and len(taints) == 0:
-                metadata["workerNodesCount"] += 1
-                if not metadata["workerNodesType"]:
-                    metadata["workerNodesType"] = instance_type
-        elif is_control_plane:
-            metadata["masterNodesCount"] += 1
-            if not metadata["masterNodesType"]:
-                metadata["masterNodesType"] = instance_type
+            if is_master and is_worker and len(taints) == 0:
+                _count_as_worker()
         elif is_infra:
             metadata["infraNodesCount"] += 1
             if not metadata["infraNodesType"]:
                 metadata["infraNodesType"] = instance_type
         elif is_worker:
-            metadata["workerNodesCount"] += 1
-            if not metadata["workerNodesType"]:
-                metadata["workerNodesType"] = instance_type
+            _count_as_worker()
         else:
             metadata["otherNodesCount"] += 1
 
-    # HCP: if ControlPlaneTopology is External, reset master info
     if infra:
         topology = infra.get("status", {}).get("controlPlaneTopology", "")
         if topology == "External":
@@ -245,81 +265,60 @@ def get_cluster_metadata():
 
     metadata["k8sVersion"] = _get_k8s_version()
 
-    if distribution == "openshift":
-        cv = _get_custom_resource(
-            "config.openshift.io", "v1", "clusterversions", "version"
-        )
-        ocp_version = ""
-        if cv:
-            for entry in cv.get("status", {}).get("history", []):
-                if entry.get("state") == "Completed":
-                    ocp_version = entry.get("version", "")
-                    break
-        metadata["ocpVersion"] = ocp_version
-        metadata["clusterVersion"] = ocp_version
-        if ocp_version:
-            parts = ocp_version.split(".")
-            metadata["ocpMajorVersion"] = (
-                ".".join(parts[:2]) if len(parts) >= 2 else ocp_version
-            )
-            metadata["stream"] = "okd" if ".okd-" in ocp_version.lower() else "ocp"
-        else:
-            metadata["ocpMajorVersion"] = ""
-            metadata["stream"] = ""
-
-        infra = _get_custom_resource(
-            "config.openshift.io", "v1", "infrastructures", "cluster"
-        )
-        infra_status = infra.get("status", {}) if infra else {}
-        metadata["platform"] = infra_status.get("platform", "")
-        metadata["clusterName"] = infra_status.get("infrastructureName", "")
-        metadata["clusterType"] = _detect_cluster_type(infra) if infra else "self-managed"
-        metadata["region"] = _get_region(infra) if infra else ""
-
-        network = _get_custom_resource(
-            "config.openshift.io", "v1", "networks", "cluster"
-        )
-        metadata["sdnType"] = (
-            network.get("status", {}).get("networkType", "") if network else ""
-        )
-
-        nodes_info = _get_nodes_info(infra)
-        metadata.update(nodes_info)
-
-        fips_val = _get_install_config_field("fips")
-        metadata["fips"] = fips_val if fips_val is not None else False
-        metadata["publish"] = _get_install_config_field("publish") or ""
-        metadata["workerArch"] = _get_install_config_field("workerArch") or ""
-        metadata["controlPlaneArch"] = _get_install_config_field("controlPlaneArch") or ""
-
-        ipsec, ipsec_mode = _get_ipsec()
-        metadata["ipsec"] = ipsec
-        metadata["ipsecMode"] = ipsec_mode
-    else:
-        metadata["ocpVersion"] = ""
-        metadata["clusterVersion"] = ""
-        metadata["ocpMajorVersion"] = ""
-        metadata["stream"] = ""
-        metadata["platform"] = ""
-        metadata["clusterName"] = ""
-        metadata["clusterType"] = "self-managed"
-        metadata["region"] = ""
-        metadata["sdnType"] = ""
-        nodes_info = _get_nodes_info(None)
-        metadata.update(nodes_info)
-        metadata["fips"] = False
-        metadata["publish"] = ""
-        metadata["workerArch"] = ""
-        metadata["controlPlaneArch"] = ""
-        metadata["ipsec"] = False
-        metadata["ipsecMode"] = "Disabled"
-
-    if not metadata["clusterVersion"]:
+    if distribution != "openshift":
+        metadata.update(_NON_OCP_DEFAULTS)
+        metadata.update(_get_nodes_info(None))
         logger.warning(
             "Could not collect OCP metadata — "
             "kubernetes client may not be configured or cluster not accessible"
         )
+        return metadata
+
+    cv = _get_custom_resource(
+        "config.openshift.io", "v1", "clusterversions", "version"
+    )
+    ocp_version = ""
+    if cv:
+        for entry in cv.get("status", {}).get("history", []):
+            if entry.get("state") == "Completed":
+                ocp_version = entry.get("version", "")
+                break
+    metadata["ocpVersion"] = ocp_version
+    metadata["clusterVersion"] = ocp_version
+    if ocp_version:
+        parts = ocp_version.split(".")
+        metadata["ocpMajorVersion"] = (
+            ".".join(parts[:2]) if len(parts) >= 2 else ocp_version
+        )
+        metadata["stream"] = "okd" if ".okd-" in ocp_version.lower() else "ocp"
     else:
+        metadata["ocpMajorVersion"] = ""
+        metadata["stream"] = ""
+
+    infra = _get_custom_resource(
+        "config.openshift.io", "v1", "infrastructures", "cluster"
+    )
+    infra_status = infra.get("status", {}) if infra else {}
+    metadata["platform"] = infra_status.get("platform", "")
+    metadata["clusterName"] = infra_status.get("infrastructureName", "")
+    metadata["clusterType"] = _detect_cluster_type(infra) if infra else "self-managed"
+    metadata["region"] = _get_region(infra) if infra else ""
+
+    network = _get_custom_resource(
+        "config.openshift.io", "v1", "networks", "cluster"
+    )
+    metadata["sdnType"] = (
+        network.get("status", {}).get("networkType", "") if network else ""
+    )
+
+    metadata.update(_get_nodes_info(infra))
+    metadata.update(_extract_install_fields(_get_install_config()))
+
+    ipsec, ipsec_mode = _get_ipsec()
+    metadata["ipsec"] = ipsec
+    metadata["ipsecMode"] = ipsec_mode
+
+    if metadata["clusterVersion"]:
         logger.info(
             "Collected metadata: cluster=%s platform=%s type=%s workers=%d region=%s",
             metadata["clusterVersion"],
@@ -328,6 +327,11 @@ def get_cluster_metadata():
             metadata["workerNodesCount"],
             metadata["region"],
         )
+    else:
+        logger.warning(
+            "Could not collect OCP metadata — "
+            "kubernetes client may not be configured or cluster not accessible"
+        )
 
     return metadata
 
@@ -335,8 +339,8 @@ def get_cluster_metadata():
 def get_prometheus(sa_name="prometheus-k8s", namespace="openshift-monitoring"):
     """Discover Prometheus endpoint and bearer token.
 
-    Uses thanos-querier when PROMETHEUS_BACKEND=thanos (supports any namespace).
-    Uses prometheus-k8s by default (openshift-* namespaces only).
+    Uses thanos-querier when PROMETHEUS_BACKEND=thanos.
+    Uses prometheus-k8s by default.
 
     Returns (prometheus_url, bearer_token).
     """
