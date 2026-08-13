@@ -1,3 +1,5 @@
+"""Multi-backend metrics indexer with OpenSearch/Elasticsearch and local file support."""
+
 import hashlib
 import json
 import logging
@@ -7,7 +9,7 @@ from abc import ABC, abstractmethod
 logger = logging.getLogger("commons.indexers")
 
 
-class IndexerConfig:
+class IndexerConfig:  # pylint: disable=too-few-public-methods
     """Indexer configuration.
 
     Attributes:
@@ -21,7 +23,7 @@ class IndexerConfig:
 
     def __init__(
         self,
-        type="opensearch",
+        type="opensearch",  # pylint: disable=redefined-builtin
         servers=None,
         index="",
         insecure_skip_verify=True,
@@ -34,7 +36,7 @@ class IndexerConfig:
         self.metrics_directory = metrics_directory
 
 
-class Indexer(ABC):
+class Indexer(ABC):  # pylint: disable=too-few-public-methods
     """Abstract base for all indexer backends."""
 
     @abstractmethod
@@ -50,7 +52,7 @@ class Indexer(ABC):
         """
 
 
-class OpenSearchIndexer(Indexer):
+class OpenSearchIndexer(Indexer):  # pylint: disable=too-few-public-methods
     """OpenSearch/Elasticsearch backend using opensearch-py.
 
     Works with both OpenSearch and Elasticsearch servers.
@@ -65,7 +67,7 @@ class OpenSearchIndexer(Indexer):
 
     def _connect(self):
         try:
-            from opensearchpy import OpenSearch
+            from opensearchpy import OpenSearch  # pylint: disable=import-outside-toplevel
 
             server = self._config.servers[0] if self._config.servers else ""
             if not server:
@@ -91,10 +93,10 @@ class OpenSearchIndexer(Indexer):
             ):
                 self._client.indices.create(index=self._config.index)
                 logger.info("Created index: %s", self._config.index)
-        except ImportError:
+        except ImportError as exc:
             raise RuntimeError(
                 "opensearch-py package not installed: pip install opensearch-py"
-            )
+            ) from exc
 
     @staticmethod
     def _doc_hash(document):
@@ -105,7 +107,7 @@ class OpenSearchIndexer(Indexer):
         if not documents:
             return "No documents to index"
         try:
-            from opensearchpy.helpers import bulk
+            from opensearchpy.helpers import bulk  # pylint: disable=import-outside-toplevel
 
             actions = []
             skipped = 0
@@ -131,13 +133,13 @@ class OpenSearchIndexer(Indexer):
                 msg = f"All {skipped} documents were duplicates, nothing indexed"
             logger.info(msg)
             return msg
-        except ImportError:
+        except ImportError as exc:
             raise RuntimeError(
                 "opensearch-py package not installed: pip install opensearch-py"
-            )
+            ) from exc
 
 
-class LocalIndexer(Indexer):
+class LocalIndexer(Indexer):  # pylint: disable=too-few-public-methods
     """Local JSON file backend.
 
     Writes documents to {metrics_directory}/{metric_name}.json.
@@ -157,13 +159,13 @@ class LocalIndexer(Indexer):
         existing = []
         if os.path.exists(out_path):
             try:
-                with open(out_path) as f:
+                with open(out_path, encoding="utf-8") as f:
                     data = json.load(f)
                     existing = data if isinstance(data, list) else [data]
             except (json.JSONDecodeError, IOError):
                 existing = []
         existing.extend(documents)
-        with open(out_path, "w") as f:
+        with open(out_path, "w", encoding="utf-8") as f:
             json.dump(existing, f, indent=2)
         msg = f"Local index: {len(documents)} documents written to {out_path}"
         logger.info(msg)
@@ -186,7 +188,6 @@ def new_indexer(config):
     indexer_type = config.type.lower()
     if indexer_type in ("elastic", "opensearch"):
         return OpenSearchIndexer(config)
-    elif indexer_type == "local":
+    if indexer_type == "local":
         return LocalIndexer(config)
-    else:
-        raise ValueError(f"Indexer not found: {config.type}")
+    raise ValueError(f"Indexer not found: {config.type}")

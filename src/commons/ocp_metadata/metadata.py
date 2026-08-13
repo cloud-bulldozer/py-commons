@@ -1,3 +1,5 @@
+"""OCP cluster metadata collection and Prometheus endpoint discovery."""
+
 import functools
 import logging
 import os
@@ -25,6 +27,7 @@ _NON_OCP_DEFAULTS = {
 
 @functools.lru_cache(maxsize=1)
 def _get_client():
+    # pylint: disable=import-outside-toplevel
     from kubernetes import client, config as k8s_config
 
     if os.environ.get("KUBECONFIG"):
@@ -130,7 +133,7 @@ def _get_install_config():
     if not cm or not cm.data or "install-config" not in cm.data:
         return None
     try:
-        import yaml
+        import yaml  # pylint: disable=import-outside-toplevel
         return yaml.safe_load(cm.data["install-config"])
     except Exception as e:
         logger.debug("Failed to parse install-config: %s", e)
@@ -198,6 +201,18 @@ def _get_nodes_info(infra):
         "totalWorkerMemoryKi": 0,
     }
 
+    def _count_as_worker(metadata, instance_type, capacity):
+        metadata["workerNodesCount"] += 1
+        if not metadata["workerNodesType"]:
+            metadata["workerNodesType"] = instance_type
+        cpu = capacity.get("cpu", "0")
+        mem = capacity.get("memory", "0Ki").replace("Ki", "")
+        metadata["totalWorkerCPU"] += int(cpu)
+        try:
+            metadata["totalWorkerMemoryKi"] += int(mem)
+        except ValueError:
+            pass
+
     for node in all_nodes:
         labels = node.metadata.labels or {}
         instance_type = labels.get("node.kubernetes.io/instance-type", "")
@@ -209,30 +224,18 @@ def _get_nodes_info(infra):
         is_infra = "node-role.kubernetes.io/infra" in labels
         is_worker = "node-role.kubernetes.io/worker" in labels
 
-        def _count_as_worker():
-            metadata["workerNodesCount"] += 1
-            if not metadata["workerNodesType"]:
-                metadata["workerNodesType"] = instance_type
-            cpu = capacity.get("cpu", "0")
-            mem = capacity.get("memory", "0Ki").replace("Ki", "")
-            metadata["totalWorkerCPU"] += int(cpu)
-            try:
-                metadata["totalWorkerMemoryKi"] += int(mem)
-            except ValueError:
-                pass
-
         if is_master or is_control_plane:
             metadata["masterNodesCount"] += 1
             if not metadata["masterNodesType"]:
                 metadata["masterNodesType"] = instance_type
             if is_master and is_worker and len(taints) == 0:
-                _count_as_worker()
+                _count_as_worker(metadata, instance_type, capacity)
         elif is_infra:
             metadata["infraNodesCount"] += 1
             if not metadata["infraNodesType"]:
                 metadata["infraNodesType"] = instance_type
         elif is_worker:
-            _count_as_worker()
+            _count_as_worker(metadata, instance_type, capacity)
         else:
             metadata["otherNodesCount"] += 1
 
