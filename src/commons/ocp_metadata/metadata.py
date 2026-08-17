@@ -27,7 +27,7 @@ _NON_OCP_DEFAULTS = {
 
 @functools.lru_cache(maxsize=1)
 def _get_client():
-    # pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel,import-error
     from kubernetes import client, config as k8s_config
 
     if os.environ.get("KUBECONFIG"):
@@ -133,7 +133,7 @@ def _get_install_config():
     if not cm or not cm.data or "install-config" not in cm.data:
         return None
     try:
-        import yaml  # pylint: disable=import-outside-toplevel
+        import yaml  # pylint: disable=import-outside-toplevel,import-error
         return yaml.safe_load(cm.data["install-config"])
     except Exception as e:
         logger.debug("Failed to parse install-config: %s", e)
