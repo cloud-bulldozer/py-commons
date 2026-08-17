@@ -1,6 +1,5 @@
 """Tests for ocp_metadata module."""
 
-import functools
 import unittest
 from unittest.mock import MagicMock, patch
 
