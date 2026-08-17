@@ -124,6 +124,11 @@ class OpenSearchIndexer(Indexer):  # pylint: disable=too-few-public-methods
                 })
             if actions:
                 success, errors = bulk(self._client, actions, raise_on_error=False)
+                if errors:
+                    for err in errors[:3]:
+                        logger.warning("Bulk index error: %s", err)
+                    if len(errors) > 3:
+                        logger.warning("... and %d more errors", len(errors) - 3)
                 msg = (
                     f"Indexed {success} documents to "
                     f"{self._config.servers[0]}/{self._config.index} "

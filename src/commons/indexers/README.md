@@ -6,9 +6,11 @@ Multi-backend metrics indexer supporting Elasticsearch, OpenSearch, and local JS
 
 | Backend | Type String | Requires |
 |---|---|---|
-| Elasticsearch | `"elastic"` | `pip install elasticsearch` |
+| Elasticsearch | `"elastic"` | `pip install opensearch-py` |
 | OpenSearch | `"opensearch"` | `pip install opensearch-py` |
 | Local JSON | `"local"` | (no dependencies) |
+
+Both Elasticsearch and OpenSearch backends use the `opensearch-py` client, which is API-compatible with Elasticsearch.
 
 ## Usage
 
@@ -57,7 +59,7 @@ indexer.index([{"value": 42}], metric_name="latency")
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `type` | str | `"elastic"` | Backend type |
+| `type` | str | `"opensearch"` | Backend type |
 | `servers` | list[str] | `[]` | Server URLs |
 | `index` | str | `""` | Index name |
 | `insecure_skip_verify` | bool | `True` | Skip TLS cert verification |
