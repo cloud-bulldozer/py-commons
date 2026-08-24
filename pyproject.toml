@@ -12,7 +12,7 @@ license = {file = "LICENSE"}
 authors = [
     {name = "Red Hat Performance and Scale", email = "jtaleric@redhat.com"}
 ]
-keywords = ["python", "jira", "release-controller", "red hat", "automation", "atlassian"]
+keywords = ["python", "jira", "release-controller", "red hat", "automation", "atlassian", "openshift", "elasticsearch"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -32,11 +32,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+opensearch = [
+    "opensearch-py>=2.0.0",
+]
+indexers = [
+    "rh-py-commons[opensearch]",
+]
+ocp_metadata = [
+    "kubernetes>=29.0.0",
+    "PyYAML>=6.0",
+]
 dev = [
     "pytest>=7.4.4",
     "pytest-cov>=4.1.0",
     "pytest-random-order>=1.1.0",
     "pylint>=3.0.3",
+    "rh-py-commons[indexers,ocp_metadata]",
 ]
 
 [tool.setuptools.packages.find]
